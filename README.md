@@ -1,134 +1,558 @@
-# n8n Workflow Builder
+<p align="center">
+  <img src="https://raw.githubusercontent.com/n8n-io/n8n/master/assets/n8n-logo.png" alt="n8n" width="120" />
+</p>
 
-A Claude Code plugin that turns plain English into deployed n8n workflows. Describe what you want to automate and the plugin handles node discovery, workflow design, code generation, validation, and deployment — all through conversation.
+<h1 align="center">n8n Workflow Builder</h1>
 
-## What It Does
+<p align="center">
+  <strong>A Claude Code plugin that turns plain English into deployed n8n workflows.</strong><br/>
+  Describe what you want to automate. The plugin discovers nodes, designs the workflow, generates SDK code, validates, deploys, and tests — all through conversation.
+</p>
 
-- **`/n8n`** — Create, update, and iterate on workflows conversationally
-- **`/n8n-manage`** — List, inspect, activate, deactivate, archive, and execute workflows
-- **`/n8n-browse`** — Explore available nodes, patterns, and workflow techniques
+<p align="center">
+  <a href="#quick-start">Quick Start</a> &bull;
+  <a href="#commands">Commands</a> &bull;
+  <a href="#how-it-works">How It Works</a> &bull;
+  <a href="#examples">Examples</a> &bull;
+  <a href="#architecture">Architecture</a>
+</p>
 
-## Examples
+---
+
+## What Can It Do?
 
 ```
 /n8n send me a Slack message every morning at 9am with the weather forecast
-/n8n when a new row is added to Google Sheets, enrich the email with Clearbit and add to HubSpot
-/n8n build a RAG chatbot that ingests PDFs, stores them in a vector database, and answers questions
-/n8n-manage list my active workflows
-/n8n-browse what AI agent nodes are available?
 ```
 
-## Prerequisites
+That's it. You type what you want, and the plugin:
 
-### 1. n8n-mcp server
+1. Finds the right nodes (Schedule Trigger + HTTP Request + Slack)
+2. Shows you a visual blueprint for approval
+3. Generates validated SDK code with exact parameter names
+4. Deploys the workflow to your n8n instance
+5. Optionally activates it and runs a test
 
-You need an n8n-mcp server connected to your Claude Code environment. Follow the setup at [github.com/czlonkowski/n8n-mcp](https://github.com/czlonkowski/n8n-mcp).
+It works for everything from simple 2-node automations to complex 15-node RAG chatbots with vector stores, AI agents, and memory.
 
-### 2. Configure MCP in Claude Code
+---
 
-Add to your `.mcp.json`:
+## Quick Start
+
+### Step 1: Install and Launch n8n
+
+If you don't have n8n running yet:
+
+```bash
+# Using Docker (recommended)
+docker run -it --rm --name n8n -p 5678:5678 -v n8n_data:/home/node/.n8n n8nio/n8n
+
+# Or using npm
+npx n8n start
+```
+
+Open your browser to **http://localhost:5678** and complete the initial setup (create your owner account).
+
+### Step 2: Enable the MCP Server in n8n
+
+The plugin communicates with n8n through its built-in MCP (Model Context Protocol) server. You need to enable it:
+
+1. **Open n8n** in your browser at `http://localhost:5678`
+2. Click your **avatar/initials** in the bottom-left corner
+3. Click **Settings**
+4. In the left sidebar, click **MCP Server** (under "Instance-level")
+5. Toggle **MCP Server** to **Enabled**
+6. You'll see the MCP connection details:
+   - **URL:** `http://localhost:5678/mcp-server/http`
+   - **Bearer Token:** A long JWT token (starts with `eyJ...`)
+7. **Copy the Bearer Token** — you'll need it in the next step
+
+> **Important:** The MCP Server section only appears in n8n version 1.76+ with the MCP feature enabled. If you don't see it, update n8n or check the [n8n MCP documentation](https://docs.n8n.io/hosting/configuration/environment-variables/#mcp).
+
+### Step 3: Configure Claude Code to Connect to n8n
+
+Create a `.mcp.json` file in your project directory (or `~/.claude/mcp.json` for global access):
+
 ```json
 {
   "mcpServers": {
     "n8n-mcp": {
-      "url": "http://localhost:3001/mcp",
-      "headers": { "Authorization": "Bearer YOUR_API_KEY" }
+      "type": "http",
+      "url": "http://localhost:5678/mcp-server/http",
+      "headers": {
+        "Authorization": "Bearer YOUR_TOKEN_HERE"
+      }
     }
   }
 }
 ```
 
-### 3. Install plugin
+Replace `YOUR_TOKEN_HERE` with the Bearer Token you copied from n8n's MCP Server settings page.
+
+**Verify the connection:** Open Claude Code and type:
+```
+Can you call get_sdk_reference and confirm n8n MCP is working?
+```
+
+If Claude responds with SDK documentation, the connection is working.
+
+### Step 4: Install the Plugin
 
 ```bash
 claude plugin add https://github.com/TheSauceSuite/n8n-plugin
 ```
 
+### Step 5: Start Building
+
+```
+/n8n send me a Slack message every morning at 9am
+```
+
+That's all you need. The plugin handles everything from here.
+
+---
+
+## Commands
+
+### `/n8n` — Build Workflows
+
+The main command. Handles creating, updating, and iterating on workflows.
+
+```bash
+# Simple automations
+/n8n send a Slack message to #general every Monday at 9am
+/n8n when I receive a Gmail, save attachments to Google Drive
+/n8n create a webhook that logs incoming data to a Google Sheet
+
+# Data pipelines
+/n8n every hour, fetch new HubSpot contacts, enrich with Clearbit, update Salesforce
+/n8n sync Airtable records to Postgres every 15 minutes
+/n8n when a Stripe payment succeeds, create an invoice in QuickBooks and email receipt
+
+# AI workflows
+/n8n build a chatbot that answers questions about our company docs
+/n8n create an AI agent that can search emails, check calendar, and send Slack messages
+/n8n when a support ticket arrives in Zendesk, classify priority with AI and route to the right team
+
+# Complex patterns
+/n8n webhook receives order → check inventory (if in stock: process + notify, else: backorder + alert)
+/n8n scrape 100 URLs, extract product data, deduplicate, and store in MongoDB
+/n8n multi-step form: collect info → AI validates → human approves → create account
+```
+
+After deployment, keep talking to modify:
+```
+Now add error handling to the HTTP request
+Change the Slack channel to #alerts
+Add a filter to only process orders above $100
+Activate it
+Run a test
+```
+
+### `/n8n-manage` — Manage Workflows
+
+List, inspect, activate, deactivate, archive, and execute existing workflows.
+
+```bash
+/n8n-manage list my workflows
+/n8n-manage activate the lead enrichment workflow
+/n8n-manage run the daily report workflow
+/n8n-manage deactivate workflow abc123
+/n8n-manage archive the old sync workflow
+```
+
+### `/n8n-browse` — Explore Capabilities
+
+Discover what n8n can do before committing to building.
+
+```bash
+/n8n-browse what nodes are available for Slack?
+/n8n-browse what triggers can start a workflow?
+/n8n-browse show me all AI agent nodes
+/n8n-browse what patterns work for data pipelines?
+/n8n-browse give me workflow ideas for sales automation
+```
+
+---
+
 ## How It Works
 
-### Hybrid Architecture
+### The 8-Phase Flow
 
-The plugin uses **two complementary systems**:
+Every `/n8n` command goes through up to 8 phases. Simple workflows breeze through in 2-3 exchanges. Complex ones get the full treatment.
 
-**Local SQLite database** (ships with plugin, 75MB):
-- 1,396 nodes with full property schemas (22.3 MB of parameter definitions)
-- Pre-computed intent tags for zero-token, 100% recall searches
-- FTS5 full-text search with BM25 ranking
-- 2,737 workflow templates with complete JSON
-- 215 real-world node configurations from popular templates
+#### Phase 1: Understand
+The plugin parses your request — extracts services, triggers, actions, conditions, and data flow. It classifies the workflow pattern (linear, branching, parallel, AI agent, etc.) and confirms understanding with you.
 
-**n8n-mcp server** (requires running n8n instance):
-- SDK reference (patterns, expressions, coding guidelines)
-- Curated node recommendations by workflow technique
-- Workflow validation and auto-fix
-- Workflow creation, update, execution, publishing
-- Project and folder management
+#### Phase 2: Discover
+Searches the **local SQLite database** (1,396 nodes) to find the exact nodes needed. For each node, it retrieves the full property schema (parameter names, types, defaults, options) and optionally finds real-world configuration examples from 2,737 workflow templates.
 
-**Why hybrid?** Node discovery via the local DB is instant, unlimited, and burns zero tokens. The MCP handles everything that touches the live n8n instance (validation, deployment, execution).
+For complex workflows (9+ nodes), **parallel research agents** (up to 4) discover nodes simultaneously across functional domains.
 
-### 8-Phase Flow
+#### Phase 3: Design
+Presents a visual **workflow blueprint** — an ASCII flow diagram with node details, data flow, and credential requirements — for your approval.
 
-1. **Understand** — Parse intent, classify pattern, confirm understanding
-2. **Discover** — Search local DB for nodes, get property schemas, find real-world examples
-3. **Design** — Present visual blueprint for approval
-4. **Refine** — Iteratively modify the design through conversation
-5. **Build** — Generate SDK code with exact parameter names from local DB
-6. **Validate** — Auto-validate and fix (3-tier escalation: auto → agent → user)
-7. **Deploy** — Create workflow in n8n, optionally activate
-8. **Iterate** — "Now add X", "change Y" — loops back without starting over
+```
+WORKFLOW: Morning Lead Enrichment
+PATTERN: Scheduled linear chain
 
-For complex workflows (9+ nodes), parallel research agents discover nodes simultaneously across functional domains.
+[Schedule Trigger] ──→ [HubSpot: Get Leads] ──→ [Clearbit: Enrich] ──→ [Slack: Post Summary]
+     9 AM daily          contact/getAll           lookup by email          #sales-leads
+```
 
-## Supported Patterns
+#### Phase 4: Build
+Generates complete n8n Workflow SDK code using **exact parameter names** from the database. For complex workflows, a dedicated **Opus-powered code writer agent** handles generation.
 
-| Pattern | Example |
-|---------|---------|
-| Linear chain | Schedule → Fetch → Send |
-| Branching (If/Switch) | Webhook → Check Priority → Route |
-| Parallel execution | Trigger → [A + B] → Merge → Process |
-| Batch processing | Fetch All → Loop → Process Each → Done |
-| AI Agent | Chat → Agent (LLM + Tools + Memory) → Response |
-| RAG pipeline | Ingest docs → Embed → Store + Chat → Retrieve → Answer |
-| Multi-trigger | [Webhook + Schedule] → Shared Chain |
-| Error handling | Node → Success / Error Handler |
-| Sub-workflow | Main → Execute Sub-workflow → Continue |
-| Form-based | Form Trigger → Pages → Process → Respond |
+#### Phase 5: Validate
+Automatically validates the generated code via the MCP server. If validation fails, a **3-tier escalation** handles it:
+1. **Auto-fix** (silent) — Fixes common issues, re-validates up to 3 rounds
+2. **Validator agent** — Systematically diagnoses and fixes using the node database, up to 5 rounds
+3. **User escalation** — After 8 total attempts, shows you the specific remaining issues
+
+#### Phase 6: Deploy
+Creates the workflow in your n8n instance. Optionally places it in a specific project/folder and activates it for production.
+
+#### Phase 7: Test
+Runs a test execution with appropriate inputs (chat message, webhook payload, form data, or manual trigger) and shows you the results node by node.
+
+#### Phase 8: Iterate
+The conversation stays open. Say "now add X", "change Y", or "remove Z" and the plugin loops back to the right phase — no starting over.
+
+---
+
+## Hybrid Architecture
+
+The plugin uses two complementary systems:
+
+### Local SQLite Database (ships with plugin)
+
+The `data/nodes.db` file (75MB, Git LFS) contains:
+
+| Data | Count | Purpose |
+|------|-------|---------|
+| Nodes | 1,396 | 812 core + 584 community, with full property schemas |
+| Property definitions | 22.3 MB | Exact parameter names, types, defaults, options |
+| Semantic tags | 5.1 avg/node | Pre-computed intent tags for zero-token search |
+| Workflow templates | 2,737 | Real-world workflows with complete JSON |
+| Template configs | 215 | Proven parameter configurations from popular templates |
+| FTS5 index | Built-in | Full-text search across names, descriptions, docs, operations |
+
+**Why local?** Node discovery is instant, unlimited, and burns zero tokens. When you say "send notification", the tag `notification` instantly matches Slack, Gmail, Telegram, Discord, Teams, Twilio, PagerDuty, and 40+ more — in one SQL query.
+
+### n8n MCP Server (your running instance)
+
+The MCP connection handles everything that touches your live n8n:
+
+| Capability | MCP Tool |
+|------------|----------|
+| SDK reference docs | `get_sdk_reference` |
+| Curated node recommendations | `get_suggested_nodes` |
+| Validate workflow code | `validate_workflow` |
+| Create workflow | `create_workflow_from_code` |
+| Update workflow | `update_workflow` |
+| Execute workflow | `execute_workflow` |
+| Get execution results | `get_execution` |
+| Inspect workflow | `get_workflow_details` |
+| Activate/deactivate | `publish_workflow` / `unpublish_workflow` |
+| Archive | `archive_workflow` |
+| Search workflows | `search_workflows` |
+| Manage projects/folders | `search_projects` / `search_folders` |
+
+---
+
+## Supported Workflow Patterns
+
+The plugin handles every n8n pattern:
+
+| Pattern | Description | Example |
+|---------|-------------|---------|
+| **Linear chain** | Step-by-step sequence | Schedule → Fetch → Transform → Send |
+| **If/Else branching** | Two-way conditional routing | Check amount → High: approve / Low: reject |
+| **Switch routing** | Multi-way routing by category | Classify ticket → Urgent / Normal / Low priority |
+| **Parallel execution** | Run branches simultaneously, merge results | [Fetch API A + Fetch API B] → Merge → Process |
+| **Batch processing** | Loop through items in batches | Fetch 1000 rows → Process 50 at a time → Done |
+| **AI Agent** | Autonomous agent with LLM, tools, and memory | Chat → Agent (OpenAI + Calculator + Web Search) → Response |
+| **RAG pipeline** | Knowledge base Q&A | Ingest PDFs → Embed → Vector Store + Chat → Retrieve → Answer |
+| **Multi-trigger** | Multiple triggers share the same chain | [Webhook + Schedule] → Same processing pipeline |
+| **Error handling** | Fallback branches for failures | API Call → Success path / Error → Alert + Retry |
+| **Sub-workflow** | Reusable modular workflows | Main → Execute Sub-workflow → Continue |
+| **Form-based** | Multi-step form collection | Form Trigger → Page 2 → Page 3 → Process → Respond |
+| **Data sync** | Keep two systems in sync | Schedule → Fetch from A → Compare → Update B |
+
+---
+
+## Tag-Based Node Discovery
+
+Every node in the database has pre-computed semantic tags. This enables instant, zero-token retrieval by user intent:
+
+| What You Say | Tag Searched | Nodes Found |
+|-------------|-------------|-------------|
+| "send notification" | `notification` | Slack, Gmail, Telegram, Discord, Teams, WhatsApp, Twilio, PagerDuty, SendGrid, 40+ more |
+| "store in database" | `database` | Postgres, MySQL, MongoDB, Redis, DataTable, BigQuery, Snowflake, DynamoDB, 25+ more |
+| "send email" | `email` | Gmail, Outlook, SendGrid, Mailchimp, SES, SMTP, Brevo, ConvertKit, 30+ more |
+| "build a chatbot" | `chatbot` | Chat Trigger, AI Agent, Simple Memory, Redis/Postgres Memory, OpenAI Assistant |
+| "RAG pipeline" | `rag` | All vector stores, embeddings, retrievers, document loaders, text splitters |
+| "project management" | `project-management` | Jira, Linear, Trello, Asana, ClickUp, GitHub, GitLab, Todoist |
+| "CRM automation" | `crm` | HubSpot, Salesforce, Pipedrive, Zoho CRM, Copper, ActiveCampaign |
+| "scrape website" | `web-scraping` | HTTP Request, HTML Extract, Phantombuster, Airtop, Jina AI |
+| "schedule task" | `trigger-on-schedule` | Schedule Trigger, Cron, Interval |
+| "e-commerce" | `ecommerce` | Stripe, Shopify, WooCommerce, PayPal, Chargebee |
+
+You can also search by exact service name — "Gmail" finds Gmail, Gmail Tool, and Gmail Trigger instantly.
+
+---
+
+## Node Coverage
+
+The plugin knows about **every n8n node**:
+
+| Category | Count | Examples |
+|----------|-------|---------|
+| **Core nodes** | 812 | Slack, Gmail, Postgres, HTTP Request, If, Merge, Code, Set... |
+| **Community nodes** | 584 | Firecrawl, Airtop, Resend, ElevenLabs, Phantombuster... |
+| **Verified community** | 516 | Vetted by n8n team |
+| **Trigger nodes** | 166 | Schedule, Webhook, Form, Chat, Email, 60+ app triggers |
+| **AI/LangChain nodes** | 99 | 15 LLM providers, 10+ vector stores, 9 embeddings, memory, tools... |
+| **Tool variant nodes** | 264 | Every major node has a Tool variant for use inside AI Agents |
+
+### AI/LLM Ecosystem
+
+| Component | Nodes |
+|-----------|-------|
+| **LLM Providers** | OpenAI, Anthropic, Google Gemini, Ollama, Groq, Mistral, DeepSeek, Cohere, xAI Grok, Azure OpenAI, AWS Bedrock, Google Vertex, Vercel AI Gateway, Hugging Face |
+| **Vector Stores** | Pinecone, Qdrant, ChromaDB, Weaviate, Supabase, PGVector, Redis, MongoDB Atlas, Azure AI Search, In-Memory, Zep, Milvus |
+| **Embeddings** | OpenAI, Azure OpenAI, Google Gemini, Google Vertex, Ollama, Cohere, Mistral, Hugging Face, AWS Bedrock |
+| **Memory** | Simple Buffer, Redis, Postgres, MongoDB, Zep, Motorhead, Xata |
+| **AI Tools** | Calculator, Code, Think, HTTP Request, Workflow, Vector Store Q&A, Wikipedia, MCP Client |
+| **Chains** | Basic LLM, Summarization, Q&A Retrieval |
+| **Processors** | Information Extractor, Text Classifier, Sentiment Analysis, Guardrails |
+| **Document Loaders** | Default Data, Binary Input, JSON Input, GitHub |
+| **Text Splitters** | Recursive Character, Character, Token |
+
+---
 
 ## Architecture
 
 ```
-.claude-plugin/
-  plugin.json                    Plugin metadata
-
-data/
-  nodes.db                       SQLite: 1,396 nodes with tags, schemas, templates
-  search.py                      Search utility (tag-based + FTS5 + operations)
-  generate_tags.py               Tag generation script (run to rebuild tags)
-  tag_taxonomy.md                Tag taxonomy documentation
-
-skills/
-  n8n/SKILL.md                   Main skill — 8-phase workflow builder
-  n8n/references/                Pattern, blueprint, and orchestration guides
-  n8n-manage/SKILL.md            Lifecycle management
-  n8n-browse/SKILL.md            Node and pattern exploration
-
-agents/
-  n8n-node-researcher.md         Parallel node discovery via local DB (Sonnet)
-  n8n-code-writer.md             SDK code generation (Opus)
-  n8n-validator.md               Validation fix loop (Sonnet)
+n8n-workflow-builder/
+├── .claude-plugin/
+│   └── plugin.json                    Plugin metadata
+│
+├── data/
+│   ├── nodes.db                       SQLite database (75MB, Git LFS)
+│   │                                  1,396 nodes + 2,737 templates + tags + schemas
+│   ├── search.py                      Multi-strategy search utility
+│   ├── generate_tags.py               Tag generation script
+│   └── tag_taxonomy.md                Tag taxonomy documentation
+│
+├── skills/
+│   ├── n8n/
+│   │   ├── SKILL.md                   Main skill: /n8n (8-phase workflow builder)
+│   │   └── references/
+│   │       ├── mcp-orchestration.md   Single source of truth for tool usage
+│   │       ├── workflow-patterns.md   15 workflow pattern classifications
+│   │       └── blueprint-format.md    Visual design presentation format
+│   ├── n8n-manage/
+│   │   └── SKILL.md                   Lifecycle management: /n8n-manage
+│   └── n8n-browse/
+│       └── SKILL.md                   Exploration: /n8n-browse
+│
+├── agents/
+│   ├── n8n-node-researcher.md         Parallel node discovery (Sonnet, local DB)
+│   ├── n8n-code-writer.md             SDK code generation (Opus)
+│   └── n8n-validator.md               Validation fix loop (Sonnet, local DB)
+│
+├── README.md
+├── LICENSE                            MIT
+├── .gitattributes                     Git LFS tracking for nodes.db
+└── .gitignore
 ```
 
-### Tag-Based Search
+### How the Agents Work
 
-Every node has pre-computed semantic tags (avg 5.1 per node). Search by intent returns ALL relevant nodes in one query:
+| Agent | Model | Purpose | When Spawned |
+|-------|-------|---------|--------------|
+| **n8n-node-researcher** | Sonnet | Searches local DB for nodes in a specific domain | Complex workflows: 2-4 spawned in parallel |
+| **n8n-code-writer** | Opus | Writes complete SDK code from blueprint + schemas | Complex workflows (9+ nodes) |
+| **n8n-validator** | Sonnet | Diagnoses and fixes validation errors using local DB | When auto-fix fails after 3 rounds |
 
-| User Intent | Tag | Example Matches |
-|-------------|-----|-----------------|
-| "send notification" | `notification` | Slack, Gmail, Telegram, Discord, Teams, Twilio, PagerDuty, 40+ more |
-| "store in database" | `database` | Postgres, MySQL, MongoDB, Redis, DataTable, BigQuery, 25+ |
-| "build a chatbot" | `chatbot` | Chat Trigger, AI Agent, Memory, OpenAI Assistant |
-| "RAG pipeline" | `rag` | All vector stores, embeddings, retrievers, doc loaders, splitters |
+---
+
+## Troubleshooting
+
+### "I can't reach the n8n MCP server"
+
+1. Make sure n8n is running (`http://localhost:5678` loads in your browser)
+2. Check that the MCP Server is enabled in n8n Settings → MCP Server
+3. Verify your `.mcp.json` has the correct URL and Bearer token
+4. The token expires if you regenerate it in n8n — update `.mcp.json` if needed
+
+### "Plugin not found" or "/n8n command not recognized"
+
+1. Verify the plugin is installed: check Claude Code settings for enabled plugins
+2. Try reinstalling: `claude plugin add https://github.com/TheSauceSuite/n8n-plugin`
+3. Restart Claude Code after installing
+
+### "Validation failed" errors
+
+The plugin has a 3-tier auto-fix system. If all 8 attempts fail, it will show you the specific errors. Common causes:
+- **Missing credentials** — Configure the required service credentials in n8n before activating
+- **Parameter mismatch** — Usually fixed automatically; if not, the error message tells you exactly what's wrong
+- **Reserved variable names** — `process`, `fetch`, `require` are blocked by the SDK sandbox
+
+### "nodes.db not found"
+
+The database is tracked with Git LFS. If it shows as a 133-byte pointer file:
+```bash
+git lfs pull
+```
+
+### Updating the node database
+
+The database ships with node data current at plugin release time. To update with the latest n8n nodes:
+```bash
+# Re-download from the n8n-mcp project
+curl -L -o data/nodes.db "https://github.com/czlonkowski/n8n-mcp/raw/main/data/nodes.db"
+# Rebuild semantic tags
+python3 data/generate_tags.py
+```
+
+---
+
+## Configuration
+
+### Environment-Specific Setup
+
+**Local n8n (default):**
+```json
+{
+  "mcpServers": {
+    "n8n-mcp": {
+      "type": "http",
+      "url": "http://localhost:5678/mcp-server/http",
+      "headers": {
+        "Authorization": "Bearer YOUR_TOKEN"
+      }
+    }
+  }
+}
+```
+
+**n8n Cloud:**
+```json
+{
+  "mcpServers": {
+    "n8n-mcp": {
+      "type": "http",
+      "url": "https://YOUR_INSTANCE.app.n8n.cloud/mcp-server/http",
+      "headers": {
+        "Authorization": "Bearer YOUR_TOKEN"
+      }
+    }
+  }
+}
+```
+
+**Self-hosted n8n (custom domain):**
+```json
+{
+  "mcpServers": {
+    "n8n-mcp": {
+      "type": "http",
+      "url": "https://n8n.yourdomain.com/mcp-server/http",
+      "headers": {
+        "Authorization": "Bearer YOUR_TOKEN"
+      }
+    }
+  }
+}
+```
+
+### Where to Put .mcp.json
+
+| Location | Scope |
+|----------|-------|
+| `~/.claude/mcp.json` | Global — available in all projects |
+| `./mcp.json` (project root) | Project — only available in this directory |
+
+---
+
+## Examples
+
+### Simple: Daily Slack Reminder
+
+```
+/n8n every weekday at 9am, post "Good morning team! Time for standup." to #engineering on Slack
+```
+
+Result: Schedule Trigger → Slack (post message)
+
+### Medium: Lead Enrichment Pipeline
+
+```
+/n8n when a new contact is added to HubSpot, look up their company on Clearbit,
+then add the enrichment data back to the HubSpot contact, and post a summary to #sales on Slack
+```
+
+Result: HubSpot Trigger → HTTP Request (Clearbit) → HubSpot (update) → Slack (post)
+
+### Complex: AI-Powered Support Triage
+
+```
+/n8n when a new Zendesk ticket arrives, use an AI agent to classify its priority
+(urgent/high/normal/low) and category (billing/technical/general), then route:
+- urgent → Slack alert to #incidents + assign to on-call
+- high → assign to senior team
+- normal → add to backlog
+- low → auto-respond with FAQ link
+```
+
+Result: Zendesk Trigger → AI Agent (with Structured Output) → Switch → 4 branches with different actions
+
+### Advanced: RAG Chatbot
+
+```
+/n8n build a customer support chatbot that:
+1. Has a chat interface
+2. Searches our knowledge base (stored in Pinecone) for relevant docs
+3. Uses GPT-4 to generate answers based on the retrieved docs
+4. Remembers conversation history
+5. Falls back to creating a Zendesk ticket if it can't answer
+```
+
+Result: Chat Trigger → AI Agent (OpenAI + Pinecone Retriever + Memory + Zendesk Tool)
+
+---
+
+## Contributing
+
+Contributions welcome! Key areas:
+
+- **Tag taxonomy** — Improve semantic tags in `data/generate_tags.py` for better node discovery
+- **Workflow patterns** — Add new patterns to `skills/n8n/references/workflow-patterns.md`
+- **Node database** — Update `data/nodes.db` with latest n8n releases
+- **Agent prompts** — Refine agent instructions in `agents/` for better code generation
+
+```bash
+# After modifying tags
+python3 data/generate_tags.py
+
+# Test search quality
+python3 data/search.py "send notification" --no-tool-variants --core-only
+python3 data/search.py --schema nodes-base.slack --resource message --operation post
+python3 data/search.py --stats
+```
+
+---
 
 ## License
 
-MIT
+MIT — see [LICENSE](LICENSE)
+
+---
+
+<p align="center">
+  Built with <a href="https://github.com/czlonkowski/n8n-mcp">n8n-mcp</a> &bull;
+  Powered by <a href="https://claude.ai/claude-code">Claude Code</a> &bull;
+  Made by <a href="https://github.com/TheSauceSuite">TheSauceSuite</a>
+</p>
