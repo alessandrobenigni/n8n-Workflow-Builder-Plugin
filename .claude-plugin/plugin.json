@@ -1,0 +1,8 @@
+{
+  "name": "n8n-workflow-builder",
+  "version": "1.0.0",
+  "description": "Conversational n8n workflow builder. Orchestrates n8n-mcp tools to create, validate, deploy, test, and manage workflows from plain English. Supports all patterns: linear, branching, parallel, batch, AI agents, multi-trigger, and more.",
+  "author": "TheSauceSuite",
+  "license": "MIT",
+  "repository": "https://github.com/TheSauceSuite/n8n-plugin"
+}
