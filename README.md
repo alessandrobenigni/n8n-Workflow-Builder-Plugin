@@ -6,13 +6,16 @@
 
 <p align="center">
   <strong>A Claude Code plugin that turns plain English into deployed n8n workflows.</strong><br/>
-  Describe what you want to automate. The plugin discovers nodes, designs the workflow, generates SDK code, validates, deploys, and tests — all through conversation.
+  Describe what you want to automate. The plugin discovers nodes, designs the workflow, generates SDK code, validates, deploys, and tests — all through conversation.<br/><br/>
+  <strong>NEW: Agent Mode</strong> — Use Claude as an AI agent brain with n8n workflows as tools.<br/>
+  Zero LLM API keys. Claude IS the intelligence. n8n is the hands.
 </p>
 
 <p align="center">
   <a href="#quick-start">Quick Start</a> &bull;
   <a href="#commands">Commands</a> &bull;
   <a href="#how-it-works">How It Works</a> &bull;
+  <a href="#agent-mode">Agent Mode</a> &bull;
   <a href="#examples">Examples</a> &bull;
   <a href="#architecture">Architecture</a>
 </p>
@@ -149,6 +152,29 @@ Activate it
 Run a test
 ```
 
+### `/n8n-agent` — Agent Mode (Claude as AI Brain)
+
+Use Claude as an autonomous AI agent with n8n workflows as tools. **No LLM API keys needed** — Claude does all the reasoning, analysis, and decision-making. n8n handles the mechanical work (scraping, API calls, storage, notifications).
+
+```bash
+# Research tasks
+/n8n-agent research the top 5 AI startups in SF and write a competitive analysis
+/n8n-agent scrape these 10 product pages and compare their pricing
+
+# Lead generation
+/n8n-agent find emails for these 20 companies and score them by ICP fit
+/n8n-agent scrape LinkedIn profiles for AI engineers at FAANG companies
+
+# Data analysis
+/n8n-agent monitor these RSS feeds and alert me about AI regulation news
+/n8n-agent analyze the top HN stories today and rate developer relevance
+
+# Multi-step workflows
+/n8n-agent for each company in this list: scrape their website, find the CEO's email, draft a personalized outreach email, and save everything to Google Sheets
+```
+
+Claude builds small "tool workflows" as needed (webhook-triggered n8n workflows), then orchestrates them in a reasoning loop — calling tools, reading results, analyzing, deciding next steps.
+
 ### `/n8n-manage` — Manage Workflows
 
 List, inspect, activate, deactivate, archive, and execute existing workflows.
@@ -260,6 +286,126 @@ The MCP connection handles everything that touches your live n8n:
 
 ---
 
+## Agent Mode
+
+### The Paradigm Shift
+
+Traditional approach: n8n's AI Agent node calls an LLM API (OpenAI, Anthropic) → **costs money per token**.
+
+Agent Mode: **Claude IS the AI brain** → n8n workflows are just tools → **$0 for all AI reasoning**.
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  CLAUDE CODE (the brain — free)                             │
+│                                                             │
+│  "Research AI startups in SF, find CEO emails, score them"  │
+│                                                             │
+│  Claude reasons → picks a tool → calls it → reads result    │
+│  → reasons again → picks next tool → calls it → ...         │
+│  → compiles final analysis with scoring and recommendations │
+│                                                             │
+│  Tools (each is a small n8n webhook workflow):               │
+│  ┌────────────┐ ┌────────────┐ ┌────────────┐             │
+│  │ Scrape URL │ │ Find Email │ │ Store Data │             │
+│  │  (n8n wf)  │ │  (n8n wf)  │ │  (n8n wf)  │             │
+│  └─────┬──────┘ └─────┬──────┘ └─────┬──────┘             │
+│        ▼               ▼               ▼                    │
+│   HTTP POST        HTTP POST       HTTP POST                │
+│   to webhook       to webhook      to webhook               │
+└────────┼───────────────┼───────────────┼────────────────────┘
+         ▼               ▼               ▼
+   ┌─────────────────────────────────────────────┐
+   │              n8n INSTANCE                    │
+   │  Workflow: "Tool: Scrape URL"               │
+   │  [Webhook] → [Jina Reader] → [Respond]     │
+   │                                             │
+   │  Workflow: "Tool: Find Email"               │
+   │  [Webhook] → [Findymail API] → [Respond]   │
+   │                                             │
+   │  Workflow: "Tool: Store to Sheets"          │
+   │  [Webhook] → [Google Sheets] → [Respond]   │
+   └─────────────────────────────────────────────┘
+```
+
+### How It Works
+
+1. **You describe the task** — "Research these 5 companies and score them"
+2. **Claude inventories available tools** — checks which tool workflows exist
+3. **Builds missing tools** — creates new webhook workflows via `/n8n` if needed
+4. **Plans the approach** — shows you the step-by-step plan
+5. **Executes the loop** — calls tools, reads results, reasons, decides next step
+6. **Compiles the output** — produces a final report, analysis, or dataset
+
+### What Claude Does vs What n8n Does
+
+| Task | Who | Cost |
+|------|-----|------|
+| Decide what to research | **Claude** (reasoning) | $0 |
+| Scrape a website | **n8n** (HTTP + Jina Reader) | $0 |
+| Read and understand article text | **Claude** (comprehension) | $0 |
+| Call a paid API (Findymail, Clearbit) | **n8n** (HTTP + auth) | API cost only |
+| Score leads by ICP fit | **Claude** (analysis) | $0 |
+| Generate personalized email copy | **Claude** (writing) | $0 |
+| Send the email | **n8n** (Gmail/SendGrid) | $0 |
+| Store results in a spreadsheet | **n8n** (Google Sheets) | $0 |
+
+### Tool Workflow Pattern
+
+Each tool is a small n8n workflow:
+
+```
+[Webhook Trigger] → [Do the work] → [Format JSON] → [Respond to Webhook]
+    POST input         API call,        { success,       returns result
+    { param: val }     scrape, etc.      data, error }   to Claude
+```
+
+Tools are named with a `Tool:` prefix and called via HTTP:
+```bash
+curl -s -X POST "http://localhost:5678/webhook/tool-scrape" \
+  -H "Content-Type: application/json" \
+  -d '{"url": "https://example.com"}'
+```
+
+### Example: Agentic Research Session
+
+```
+You: /n8n-agent analyze today's top 3 Hacker News stories, scrape each article,
+     and rate which is most relevant for a developer audience
+
+Claude: I'll use Tool: Scrape URL to fetch each article, then analyze them myself.
+
+  Step 1: Fetching HN top stories... [direct API call]
+  → Got 3 stories: Artemis II (868pts), Subscription Bombing (110pts), Email Obfuscation (59pts)
+
+  Step 2: Scraping article 1/3... [calling Tool: Scrape URL]
+  → Got 39,464 chars from NASA
+
+  Step 3: Scraping article 2/3... [calling Tool: Scrape URL]
+  → Got 9,037 chars from Bytemash
+
+  Step 4: Scraping article 3/3... [calling Tool: Scrape URL]
+  → Got 19,185 chars from spencermortensen.com
+
+  Step 5: Analyzing all 67,686 chars of article text...
+
+  === RESEARCH REPORT ===
+
+  #1 [8/10 Developer Relevance] "Subscription Bombing"
+  Key Takeaway: Your signup form is a weapon — attackers use it to
+  spam-bomb victims. Add CAPTCHA and rate limiting today.
+
+  #2 [7/10] "Email Obfuscation 2026"
+  Key Takeaway: CSS display:none blocks 100% of harvesters. Simple works.
+
+  #3 [6/10] "Artemis II Launch"
+  Key Takeaway: Engineering marvel, but less directly actionable for devs.
+
+  Total AI cost: $0.00 (Claude did all reasoning)
+  Tool calls: 3 scrapes via n8n
+```
+
+---
+
 ## Supported Workflow Patterns
 
 The plugin handles every n8n pattern:
@@ -350,8 +496,10 @@ n8n-workflow-builder/
 │   │   ├── SKILL.md                   Main skill: /n8n (8-phase workflow builder)
 │   │   └── references/
 │   │       ├── mcp-orchestration.md   Single source of truth for tool usage
-│   │       ├── workflow-patterns.md   15 workflow pattern classifications
+│   │       ├── workflow-patterns.md   16 workflow pattern classifications
 │   │       └── blueprint-format.md    Visual design presentation format
+│   ├── n8n-agent/
+│   │   └── SKILL.md                   Agent mode: /n8n-agent (Claude as AI brain)
 │   ├── n8n-manage/
 │   │   └── SKILL.md                   Lifecycle management: /n8n-manage
 │   └── n8n-browse/
@@ -360,6 +508,7 @@ n8n-workflow-builder/
 ├── agents/
 │   ├── n8n-node-researcher.md         Parallel node discovery (Sonnet, local DB)
 │   ├── n8n-code-writer.md             SDK code generation (Opus)
+│   ├── n8n-tool-builder.md            Tool workflow builder for agent mode (Sonnet)
 │   └── n8n-validator.md               Validation fix loop (Sonnet, local DB)
 │
 ├── README.md
@@ -374,6 +523,7 @@ n8n-workflow-builder/
 |-------|-------|---------|--------------|
 | **n8n-node-researcher** | Sonnet | Searches local DB for nodes in a specific domain | Complex workflows: 2-4 spawned in parallel |
 | **n8n-code-writer** | Opus | Writes complete SDK code from blueprint + schemas | Complex workflows (9+ nodes) |
+| **n8n-tool-builder** | Sonnet | Builds webhook tool workflows for agent mode | When /n8n-agent needs a new tool |
 | **n8n-validator** | Sonnet | Diagnoses and fixes validation errors using local DB | When auto-fix fails after 3 rounds |
 
 ---

@@ -98,6 +98,15 @@ Use this reference to map the user's natural language description to the correct
 **Key nodes:** `n8n-nodes-base.httpRequest`, `n8n-nodes-base.htmlExtract`, `n8n-nodes-base.code`
 **Recommended:** Phantombuster for social media, Airtop for complex scraping, Jina AI for LLM-friendly extraction
 
+### 16. TOOL WORKFLOW (for Claude Agent Mode)
+**Signal words:** "agent tool", "tool workflow", "callable workflow", "webhook tool", "reusable tool", "Claude as agent"
+**Pattern:** Webhook Trigger (POST, responseNode) → Do Work → Format JSON → Respond to Webhook
+**Key nodes:** `n8n-nodes-base.webhook` (responseMode: responseNode), `n8n-nodes-base.respondToWebhook`, processing nodes
+**Purpose:** Small single-purpose workflows that Claude calls via HTTP during agentic execution. Each tool does ONE thing (scrape, enrich, store, notify).
+**Naming:** Workflow name starts with "Tool: " prefix. Webhook path: `tool-{name}`.
+**Critical:** Must be published (activated) for the webhook to accept calls.
+**Input/Output contract:** Input as JSON body `{ "param": "value" }`, output as `{ "success": true/false, "data": {...}, "error": "..." }`
+
 ## Complexity Classification
 
 | Criterion | Simple | Moderate | Complex |
