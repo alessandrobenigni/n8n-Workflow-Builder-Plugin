@@ -23,6 +23,13 @@ import sys
 import os
 import argparse
 import re
+import io
+
+# Force UTF-8 output on Windows (fixes emoji/unicode crashes on cp1252 terminals)
+if sys.stdout.encoding != 'utf-8':
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+if sys.stderr.encoding != 'utf-8':
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
 from collections import defaultdict
 
 DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'nodes.db')
