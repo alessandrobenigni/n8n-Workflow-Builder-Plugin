@@ -33,14 +33,20 @@ Read these before every workflow build:
 
 ## Prerequisites Check
 
-Call `mcp__n8n-mcp__get_sdk_reference` with section "import". If this fails:
-> "I can't reach the n8n MCP server. Please check that your n8n-mcp server is running and configured."
+**1. MCP connection:** Call `mcp__n8n-mcp__get_sdk_reference` with section "import".
+- If connection refused: "n8n doesn't appear to be running. Start it with `docker start n8n` or `npx n8n start`, then check http://localhost:5678 loads."
+- If auth error (401/403): "MCP token may be expired. Go to n8n Settings → MCP Server, copy the new Bearer token, and update your `.mcp.json`."
+- If other error: "Can't reach n8n MCP server. Check your `.mcp.json` has the correct URL and token."
 
-Verify the local database exists by running:
+**2. Local database:** Run:
 ```bash
 python3 ${CLAUDE_PLUGIN_ROOT}/data/search.py --stats
 ```
-If this fails, the plugin's data/nodes.db is missing.
+- If "command not found" for python3: try `python` instead. If neither works, Python 3.8+ must be installed.
+- If nodes.db not found: the Git LFS file wasn't pulled. Run `git lfs pull` in the plugin directory.
+- If stats show 1,396 nodes, the database is ready.
+
+**Important:** Do NOT use `mcp__n8n-mcp__get_node_types` or `mcp__n8n-mcp__search_nodes` — they are broken on this MCP deployment. Use `search.py` for all node discovery and schema lookups.
 
 ---
 
@@ -276,13 +282,19 @@ mcp__n8n-mcp__update_workflow(workflowId, code)
 
 If activate: `mcp__n8n-mcp__publish_workflow(workflowId)`
 
+**Important for webhook/tool workflows:** If this workflow has a Webhook trigger and will be called by `/n8n-agent` as a tool, it **MUST be activated** — webhook endpoints only accept requests when the workflow is active. Always activate tool workflows.
+
+If project not found via search: "I couldn't find a project called '[name]'. Would you like me to use the default personal project, or list available projects?"
+
+**Note:** Archive (`archive_workflow`) is a soft delete — the workflow is hidden but recoverable in n8n. It is not permanently destroyed.
+
 ---
 
 ## Phase 7: TEST (optional)
 
 If user wants to test:
 
-1. Determine input type from trigger:
+1. Determine input type from trigger. For **form triggers**, first call `mcp__n8n-mcp__get_workflow_details(workflowId)` to inspect form field names before asking the user for values.
    - **Chat:** Ask for test message → `{ type: "chat", chatInput: "..." }`
    - **Webhook:** Compose test payload → `{ type: "webhook", webhookData: { body: {...} } }`
    - **Form:** Ask for field values → `{ type: "form", formData: {...} }`

@@ -98,10 +98,12 @@ If the task needs tools that don't exist yet, build them using `/n8n`. Each tool
 5. **Error handling** — onError: continueErrorOutput with a fallback that returns `{ "success": false }`
 6. **Activate immediately** — Tool workflows must be published so the webhook is live
 
-After building, activate the tool:
+After building, **you MUST activate the tool** — webhook endpoints only accept requests when the workflow is active:
 ```
 mcp__n8n-mcp__publish_workflow(workflowId)
 ```
+
+**CRITICAL:** If you forget this step, all curl calls to the webhook will return 404. Always activate immediately after deploying a tool workflow.
 
 Tell the user: **"Built and activated 'Tool: [Name]'. I can now call it at /webhook/tool-{name}."**
 
@@ -138,7 +140,16 @@ curl -s -X POST "http://localhost:5678/webhook/tool-{name}" \
 - Use `localhost:5678` (or the user's n8n URL) for webhook calls
 - Always use `-s` (silent) to suppress curl progress
 - Parse the JSON response with python3 for clean output
-- Handle failures gracefully — if a tool returns `success: false`, note it and continue
+- Add `-w "\n%{http_code}"` to detect HTTP-level failures
+
+**Error handling — three failure modes:**
+
+| Failure | Symptom | Cause | Fix |
+|---------|---------|-------|-----|
+| **Connection refused** | curl error 7 | n8n not running | Start n8n, check URL |
+| **404 Not Found** | HTTP 404 | Tool workflow not activated | Run `publish_workflow(workflowId)` |
+| **JSON `success: false`** | HTTP 200 but error in body | Tool's processing failed | Check tool input params, retry, or skip |
+| **Timeout** | curl hangs >15s | Target URL slow/down | Use `--max-time 20`, note and continue |
 
 ### 5b. Read and reason about the results
 
