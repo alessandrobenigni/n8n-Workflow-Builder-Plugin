@@ -107,6 +107,15 @@ Use this reference to map the user's natural language description to the correct
 **Critical:** Must be published (activated) for the webhook to accept calls.
 **Input/Output contract:** Input as JSON body `{ "param": "value" }`, output as `{ "success": true/false, "data": {...}, "error": "..." }`
 
+### 17. CLAUDE-IN-THE-MIDDLE (Wait Node Pattern)
+**Signal words:** "Claude analyzes in the middle", "pause for AI", "human-in-the-loop reasoning", "AI processing step"
+**Pattern:** Trigger → Collect Data → Prepare → Wait (webhook, POST) → Use Claude Output → Act
+**Key nodes:** `n8n-nodes-base.wait` (resume: webhook, httpMethod: POST)
+**How it works:** Workflow runs until the Wait node, pauses with status "waiting". Claude reads the paused execution data via `get_execution`, analyzes it (free AI reasoning), then POSTs JSON to the resume URL (`$execution.resumeUrl`). Workflow resumes and the post-Wait nodes access Claude's data via `$json.body.*`.
+**Pre-Wait data access:** `$("Node Before Wait").item.json.field`
+**Claude's data access:** `$json.body.fieldName`
+**Critical:** Wait node must use `httpMethod: 'POST'` and `resume: 'webhook'`. POST ensures Claude's JSON arrives in `$json.body`, not query params.
+
 ## Complexity Classification
 
 | Criterion | Simple | Moderate | Complex |

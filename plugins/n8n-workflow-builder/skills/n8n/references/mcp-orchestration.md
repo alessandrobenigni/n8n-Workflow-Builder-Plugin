@@ -257,6 +257,46 @@ MCP: get_execution(workflowId, executionId)
 ### Phase 8: ITERATE
 Mix of local DB (new node discovery) and MCP (validate, update, execute) based on change scope.
 
+## Claude-in-the-Middle Orchestration (Wait Node Pattern)
+
+When Claude needs to be a processing step INSIDE a single n8n workflow:
+
+### Step 1: Build the workflow with a Wait node
+Include a Wait node configured with `resume: 'webhook'` and `httpMethod: 'POST'`.
+
+### Step 2: Execute the workflow
+```
+MCP: execute_workflow(workflowId, executionMode: "manual")
+→ Returns: { executionId, status: "waiting" }
+```
+
+### Step 3: Read the paused execution data
+```
+MCP: get_execution(workflowId, executionId, includeData: true)
+→ Read: resultData.runData["Prepare Node"][0].data.main[0][0].json
+→ Read: executionData.nodeExecutionStack[0].metadata.resumeUrl
+```
+
+### Step 4: Claude analyzes (free AI reasoning)
+Read the collected data, think about it, produce structured output.
+
+### Step 5: Resume the workflow
+```bash
+curl -s -X POST "RESUME_URL" \
+  -H "Content-Type: application/json" \
+  -d '{"field1": "value1", "field2": "value2"}'
+```
+
+### Step 6: Read the final result
+```
+MCP: get_execution(workflowId, executionId, includeData: true, nodeNames: ["Final Node"])
+→ The final node has BOTH n8n data and Claude's analysis
+```
+
+### Expression paths after Wait node resumes:
+- Pre-Wait data: `$("Node Before Wait").item.json.field`
+- Claude's POST body: `$json.body.field`
+
 ## Reserved Variable Names
 
 The n8n SDK validator sandboxes code execution. These JavaScript globals are BLOCKED as variable names:

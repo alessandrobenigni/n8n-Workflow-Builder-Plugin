@@ -432,6 +432,30 @@ The plugin handles every n8n pattern:
 | **Sub-workflow** | Reusable modular workflows | Main → Execute Sub-workflow → Continue |
 | **Form-based** | Multi-step form collection | Form Trigger → Page 2 → Page 3 → Process → Respond |
 | **Data sync** | Keep two systems in sync | Schedule → Fetch from A → Compare → Update B |
+| **Tool workflow** | Single-purpose webhook for agent mode | Webhook → Process → Respond (Claude calls via HTTP) |
+| **Claude-in-the-Middle** | Claude as a processing step inside one workflow | Collect → **Wait** → Claude POSTs analysis → Resume → Act |
+
+### Claude-in-the-Middle (Enterprise Pattern)
+
+The most architecturally clean integration: Claude is a processing node **inside** a single n8n workflow execution.
+
+```
+┌──────────── SINGLE n8n WORKFLOW EXECUTION ──────────────┐
+│                                                          │
+│  [Trigger] → [Collect] → [Prepare] → [WAIT] → [Report]  │
+│                                         ↑                │
+│                                    Claude reads          │
+│                                    paused data,          │
+│                                    POSTs JSON            │
+│                                    analysis back         │
+└──────────────────────────────────────────────────────────┘
+```
+
+- **One workflow, one execution ID** — clean in n8n's execution history
+- **Data flows through Claude** — pre-Wait n8n data + Claude's analysis merge in the final nodes
+- **Wait node** pauses execution and exposes a resume URL
+- **Claude POSTs JSON** to the resume URL — workflow resumes with Claude's output in `$json.body.*`
+- **$0 AI cost** — Claude does all reasoning, n8n handles collection and action
 
 ---
 

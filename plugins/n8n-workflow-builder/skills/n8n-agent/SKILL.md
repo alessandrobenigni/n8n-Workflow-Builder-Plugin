@@ -271,6 +271,81 @@ Use this URL for all webhook tool calls throughout the session.
 
 ---
 
+## Claude-in-the-Middle Pattern (Single Workflow)
+
+For enterprise-grade workflows where Claude needs to be a **processing step inside a single n8n workflow** (not a separate tool call), use the **Wait node** pattern:
+
+```
+[Trigger] → [Collect Data] → [Prepare] → [Wait node] → [Use Claude Output] → [Act]
+                                              ↑
+                                         Claude POSTs
+                                         JSON analysis
+                                         to resume URL
+```
+
+### How it works:
+
+1. **Build the workflow** with a Wait node (`resume: 'webhook'`, `httpMethod: 'POST'`) in the middle
+2. **Execute the workflow** — it runs until the Wait node, then pauses with status `"waiting"`
+3. **Read the paused data** — call `mcp__n8n-mcp__get_execution` with `includeData: true` to see what was collected before the pause
+4. **Claude analyzes** — read the data, reason about it (free AI, no API cost)
+5. **Resume the workflow** — POST JSON to the resume URL:
+   ```bash
+   curl -s -X POST "RESUME_URL" \
+     -H "Content-Type: application/json" \
+     -d '{"relevanceScore": 8, "reasoning": "...", "summary": "..."}'
+   ```
+6. **Workflow completes** — the post-Wait nodes access Claude's data via `$json.body.*`
+
+### Critical details:
+
+- **Resume URL** is in the execution data at `executionData.nodeExecutionStack[0].metadata.resumeUrl`
+- **Wait node must use `httpMethod: 'POST'`** — this ensures Claude's JSON arrives in `$json.body.*` (not query params)
+- **Post-Wait expressions** reference pre-Wait data via `$("Node Name").item.json.field` and Claude's data via `$json.body.field`
+- **One execution ID** — this is a single workflow execution, not two separate workflows
+- **The workflow is visible in n8n** — you can see the paused execution, the Wait node waiting, and the resumed completion
+
+### When to use which pattern:
+
+| Pattern | When | Pros | Cons |
+|---------|------|------|------|
+| **Tool workflows** (webhook call/response) | Multiple independent tool calls in a reasoning loop | Flexible, parallel, any order | Multiple workflows, Claude drives loop |
+| **Claude-in-the-Middle** (Wait node) | Single workflow where Claude is ONE processing step | One workflow, clean data flow, visible in n8n | One pause point, linear flow |
+| **Hybrid** | Complex pipelines | Best of both — tool workflows for gathering, middleware for processing | Most complex to set up |
+
+### Building a middleware workflow:
+
+Use `/n8n` to build the workflow. The key parameters for the Wait node:
+
+```javascript
+const waitForClaude = node({
+  type: 'n8n-nodes-base.wait',
+  version: 1.1,
+  config: {
+    name: 'Wait for Claude',
+    parameters: {
+      resume: 'webhook',
+      httpMethod: 'POST',
+      incomingAuthentication: 'none'
+    },
+    position: [...]
+  },
+  output: [{ body: { /* Claude's expected output fields */ } }]
+});
+```
+
+Post-Wait nodes access Claude's analysis:
+```javascript
+// Data from BEFORE the Wait (original n8n data):
+expr('{{ $("Prepare Node").item.json.title }}')
+
+// Data from Claude (POSTed to resume):
+expr('{{ $json.body.relevanceScore }}')
+expr('{{ $json.body.reasoning }}')
+```
+
+---
+
 ## Style
 
 - **Show your reasoning** — Unlike builder mode, agent mode should show Claude thinking: "I notice Company B has no pricing page — let me check their LinkedIn instead."
