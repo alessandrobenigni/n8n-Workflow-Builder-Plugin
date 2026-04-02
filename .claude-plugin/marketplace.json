@@ -1,0 +1,19 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "n8n-marketplace",
+  "owner": {
+    "name": "TheSauceSuite"
+  },
+  "plugins": [
+    {
+      "name": "n8n-workflow-builder",
+      "source": "./plugins/n8n-workflow-builder",
+      "description": "Conversational n8n workflow builder with Agent Mode. Build workflows from plain English (/n8n), use Claude as an AI agent brain with n8n tool workflows at zero LLM API cost (/n8n-agent), manage workflows (/n8n-manage), and explore 1,396 nodes (/n8n-browse). Ships with a 75MB SQLite database for instant node discovery.",
+      "version": "1.1.0",
+      "author": {
+        "name": "TheSauceSuite"
+      },
+      "category": "automation"
+    }
+  ]
+}

@@ -102,7 +102,7 @@ If Claude responds with SDK documentation, the connection is working.
 ### Step 4: Install the Plugin
 
 ```bash
-claude plugin add https://github.com/TheSauceSuite/n8n-plugin
+claude install-plugin TheSauceSuite/n8n-plugin
 ```
 
 ### Step 5: Start Building
@@ -540,7 +540,7 @@ n8n-workflow-builder/
 ### "Plugin not found" or "/n8n command not recognized"
 
 1. Verify the plugin is installed: check Claude Code settings for enabled plugins
-2. Try reinstalling: `claude plugin add https://github.com/TheSauceSuite/n8n-plugin`
+2. Try reinstalling: `claude install-plugin TheSauceSuite/n8n-plugin`
 3. Restart Claude Code after installing
 
 ### "Validation failed" errors
