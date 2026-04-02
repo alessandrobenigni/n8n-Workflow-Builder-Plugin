@@ -161,6 +161,69 @@ const mem = memory({ type: '@n8n/n8n-nodes-langchain.memoryBufferWindow', versio
 const agentNode = node({ type: '@n8n/n8n-nodes-langchain.agent', version: 3.1, config: { name: 'AI Assistant', parameters: { promptType: 'define', text: 'system prompt' }, subnodes: { model: llm, memory: mem }, position: [...] }, output: [{ output: 'response' }] });
 ```
 
+### Schedule Trigger (Cron Jobs)
+```javascript
+// Every day at 9 AM
+const dailyMorning = trigger({
+  type: 'n8n-nodes-base.scheduleTrigger', version: 1.3,
+  config: { name: 'Every Day 9 AM', parameters: {
+    rule: { interval: [{ field: 'cronExpression', expression: '0 9 * * *' }] }
+  }, position: [240, 300] },
+  output: [{}]
+});
+
+// Every hour
+const hourly = trigger({
+  type: 'n8n-nodes-base.scheduleTrigger', version: 1.3,
+  config: { name: 'Every Hour', parameters: {
+    rule: { interval: [{ field: 'hours', hoursInterval: 1 }] }
+  }, position: [240, 300] },
+  output: [{}]
+});
+
+// Every 5 minutes
+const fiveMin = trigger({
+  type: 'n8n-nodes-base.scheduleTrigger', version: 1.3,
+  config: { name: 'Every 5 Minutes', parameters: {
+    rule: { interval: [{ field: 'minutes', minutesInterval: 5 }] }
+  }, position: [240, 300] },
+  output: [{}]
+});
+
+// Weekdays at 9 AM (Mon-Fri)
+const weekdayMorning = trigger({
+  type: 'n8n-nodes-base.scheduleTrigger', version: 1.3,
+  config: { name: 'Weekdays 9 AM', parameters: {
+    rule: { interval: [{ field: 'cronExpression', expression: '0 9 * * 1-5' }] }
+  }, position: [240, 300] },
+  output: [{}]
+});
+
+// Every Monday at 8:30 AM
+const mondayMorning = trigger({
+  type: 'n8n-nodes-base.scheduleTrigger', version: 1.3,
+  config: { name: 'Monday 8:30 AM', parameters: {
+    rule: { interval: [{ field: 'cronExpression', expression: '30 8 * * 1' }] }
+  }, position: [240, 300] },
+  output: [{}]
+});
+```
+
+**Common cron expressions:**
+
+| Schedule | Cron | Interval Alternative |
+|----------|------|---------------------|
+| Every minute | `* * * * *` | `field: 'minutes', minutesInterval: 1` |
+| Every 5 min | `*/5 * * * *` | `field: 'minutes', minutesInterval: 5` |
+| Every hour | `0 * * * *` | `field: 'hours', hoursInterval: 1` |
+| Every day 9 AM | `0 9 * * *` | `field: 'days', triggerAtHour: 9` |
+| Weekdays 9 AM | `0 9 * * 1-5` | (cron only) |
+| Monday 8:30 AM | `30 8 * * 1` | (cron only) |
+| 1st of month | `0 0 1 * *` | (cron only) |
+| Every 30 sec | N/A | `field: 'seconds', secondsInterval: 30` |
+
+**CRITICAL:** Schedule triggers only fire when the workflow is **published (activated)**. A draft workflow will NOT run on schedule. Always call `publish_workflow` after deploying a scheduled workflow.
+
 ### Multi-Trigger Fan-In
 ```javascript
 export default workflow('id', 'Name')

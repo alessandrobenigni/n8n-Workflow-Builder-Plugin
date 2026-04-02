@@ -282,7 +282,12 @@ mcp__n8n-mcp__update_workflow(workflowId, code)
 
 If activate: `mcp__n8n-mcp__publish_workflow(workflowId)`
 
-**Important for webhook/tool workflows:** If this workflow has a Webhook trigger and will be called by `/n8n-agent` as a tool, it **MUST be activated** — webhook endpoints only accept requests when the workflow is active. Always activate tool workflows.
+**Important — workflows that MUST be activated to work:**
+- **Schedule/Cron triggers** — Will NOT fire on schedule unless activated. Always recommend activation for scheduled workflows.
+- **Webhook triggers** — Endpoint only accepts requests when active.
+- **Tool workflows** (for `/n8n-agent`) — Same as webhooks.
+
+For scheduled workflows, proactively recommend: "This workflow uses a schedule trigger. I recommend activating it now so it runs automatically. Want me to activate it?"
 
 If project not found via search: "I couldn't find a project called '[name]'. Would you like me to use the default personal project, or list available projects?"
 
@@ -298,7 +303,7 @@ If user wants to test:
    - **Chat:** Ask for test message → `{ type: "chat", chatInput: "..." }`
    - **Webhook:** Compose test payload → `{ type: "webhook", webhookData: { body: {...} } }`
    - **Form:** Ask for field values → `{ type: "form", formData: {...} }`
-   - **Schedule/Manual:** No inputs → `executionMode: "manual"`
+   - **Schedule/Manual:** No inputs → `executionMode: "manual"`. Note: this runs the workflow once immediately. It does NOT test the schedule timing — the schedule only fires automatically when the workflow is activated.
 
 2. `mcp__n8n-mcp__execute_workflow(workflowId, inputs)`
 

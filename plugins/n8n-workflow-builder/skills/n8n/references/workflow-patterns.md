@@ -7,8 +7,24 @@ Use this reference to map the user's natural language description to the correct
 ### 1. SCHEDULED / LINEAR CHAIN
 **Signal words:** "every", "daily", "hourly", "weekly", "on a schedule", "at [time]", "cron", "recurring", "periodically", "each morning/evening"
 **Pattern:** Schedule Trigger → Step 1 → Step 2 → ... → Final Step
-**Key nodes:** `n8n-nodes-base.scheduleTrigger`
+**Key nodes:** `n8n-nodes-base.scheduleTrigger` (v1.3)
 **SDK pattern:** `.add(trigger).to(nodeA).to(nodeB).to(nodeC)`
+**CRITICAL:** Scheduled workflows MUST be published (activated) to fire on schedule. A draft will NOT run.
+
+**Common schedule configurations:**
+
+| User Says | Config |
+|-----------|--------|
+| "every morning at 9" | `field: 'cronExpression', expression: '0 9 * * *'` |
+| "every hour" | `field: 'hours', hoursInterval: 1` |
+| "every 5 minutes" | `field: 'minutes', minutesInterval: 5` |
+| "every weekday at 9am" | `field: 'cronExpression', expression: '0 9 * * 1-5'` |
+| "every Monday" | `field: 'cronExpression', expression: '0 9 * * 1'` |
+| "every 30 seconds" | `field: 'seconds', secondsInterval: 30` |
+| "twice a day (9am and 5pm)" | Two intervals: `expression: '0 9 * * *'` + `expression: '0 17 * * *'` |
+| "first of every month" | `field: 'cronExpression', expression: '0 0 1 * *'` |
+
+**Note:** For simple intervals (every N minutes/hours), use the interval fields. For complex patterns (weekdays only, specific days, multiple times), use `cronExpression`.
 
 ### 2. EVENT-DRIVEN / WEBHOOK
 **Signal words:** "when", "whenever", "on new", "on change", "if something happens", "receives a request", "API call", "incoming"
