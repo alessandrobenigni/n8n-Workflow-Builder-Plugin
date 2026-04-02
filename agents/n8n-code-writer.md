@@ -48,6 +48,7 @@ import { workflow, node, trigger, sticky, placeholder, newCredential, ifElse, sw
 | Variable names | `sendToSlack`, `fetchLeads` | `process`, `fetch`, `node`, `trigger` |
 | Node names | `name: 'Fetch New Leads'` | `name: 'HTTP Request'` |
 | Credentials | `newCredential('Slack')` | `'my-api-key'` |
+| Output property | `output: [{ id: 1, name: 'x' }]` | `output: [42]` or `output: 42` |
 | Expressions | `expr('{{ $json.email }}')` | `` expr(`${$json.email}`) `` |
 | Multiline expr | `expr('Line 1\n' + 'Line 2 {{ $json.x }}')` | `` expr(`Line 1\n${$json.x}`) `` |
 | Placeholders | `url: placeholder('Your API URL')` | `url: expr(placeholder(...))` |
@@ -91,6 +92,16 @@ Return:
 1. **Complete SDK code** (ready for `create_workflow_from_code`)
 2. **Summary:** node count, pattern used, placeholder values user needs to fill
 3. **Validation status:** "Valid" or list of remaining errors
+
+## Runtime Gotchas (MUST know before writing Code nodes)
+
+1. **HTTP Request + JSON array response:** n8n splits EACH array element into a separate item. To reconstruct the array in a Code node: `const arr = $input.all().map(i => i.json);` — NOT `$input.first().json`.
+
+2. **Output must be array of objects:** `output: [{ key: 'value' }]` always. Never bare values like `output: [42]`.
+
+3. **Set node `include: 'none'`:** May trigger a warning. Omit the `include` parameter entirely unless you specifically want to discard all input fields.
+
+4. **executeOnce for independent sources:** When chaining two independent data-fetch nodes, the second runs N times (once per item from the first). Add `executeOnce: true` if it should run once.
 
 ## SDK Pattern Reference
 

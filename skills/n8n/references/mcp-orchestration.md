@@ -271,6 +271,28 @@ The n8n SDK validator sandboxes code execution. These JavaScript globals are BLO
 
 Always use descriptive, unique variable names. Never reuse SDK builder function names (`node`, `trigger`, `merge`, `tool`, `memory`, etc.) as variable names.
 
+## n8n Runtime Behaviors (Critical for Code Nodes)
+
+These behaviors affect how data flows at runtime. Getting them wrong causes silent data loss.
+
+### HTTP Request returns JSON array → n8n splits into separate items
+When an HTTP Request node receives a JSON array (e.g., `[1, 2, 3]`), n8n splits EACH element into a separate item. So `$input.first().json` is just `1` (the first element), NOT the array.
+
+**Wrong:** `const ids = $input.first().json;` → gets just one number
+**Right:** `const allItems = $input.all(); const ids = allItems.map(i => i.json);` → reconstructs the array
+
+### Output property must always be array of objects
+The SDK `output` property must be `[{ key: value }]`. Bare values like `[42]` or `["text"]` cause validation errors ("Cannot use 'in' operator").
+
+**Wrong:** `output: [47603657, 47610943]`
+**Right:** `output: [{ value: 47603657 }, { value: 47610943 }]`
+
+### Set node `include: 'none'` may trigger warning
+Some Set node configurations warn about `include` needing expression format. Omit `include` entirely to avoid this — the default (`'all'`) works in most cases. Only use `include: 'none'` when you explicitly want to discard all input fields.
+
+### executeOnce for independent sources
+When two nodes are chained and the first returns N items, the second runs N times. If the second is an independent data source (not processing items from the first), add `executeOnce: true` to run it only once regardless of input count.
+
 ## Node Position Layout
 
 | Nodes | Layout Strategy |
