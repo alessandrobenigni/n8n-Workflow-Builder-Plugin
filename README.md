@@ -128,7 +128,12 @@ In Claude Code, run these two commands:
 /plugin install n8n-workflow-builder@n8n-marketplace
 ```
 
-> **Note:** You need [Git LFS](https://git-lfs.com/) installed for the 75MB node database. If you don't have it: `brew install git-lfs && git lfs install` (Mac) or `apt install git-lfs && git lfs install` (Linux) or download from [git-lfs.com](https://git-lfs.com/) (Windows).
+> **REQUIRED:** [Git LFS](https://git-lfs.com/) must be installed BEFORE installing the plugin. The 75MB node database won't download without it.
+> - **Mac:** `brew install git-lfs && git lfs install`
+> - **Linux:** `apt install git-lfs && git lfs install`
+> - **Windows:** Download from [git-lfs.com](https://git-lfs.com/), then run `git lfs install`
+>
+> If you already installed without Git LFS, run `git lfs pull` in the plugin directory to download the database.
 
 ### Step 5: Start Building
 

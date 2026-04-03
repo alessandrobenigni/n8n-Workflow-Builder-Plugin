@@ -406,11 +406,17 @@ N8N_URL=http://localhost:5678
 N8N_API_KEY=your-n8n-api-key-here
 ```
 
-Read the n8n URL and API key:
+Read the n8n URL and API key from environment:
 ```bash
 N8N_URL="${N8N_URL:-http://localhost:5678}"
 N8N_API_KEY="${N8N_API_KEY:-}"
 ```
+
+**Validate the URL before making API calls:**
+```bash
+curl -s --max-time 5 "${N8N_URL}/healthz" > /dev/null 2>&1 && echo "n8n reachable" || echo "UNREACHABLE"
+```
+If unreachable: "Can't reach n8n at ${N8N_URL}. Is the URL in your `.env` correct for this environment? Update `N8N_URL` if needed."
 
 If `N8N_API_KEY` is not set, ask: "To manage credentials automatically, I need your n8n API key. Go to n8n Settings > API > Create API key, then set `N8N_API_KEY` in your `.env` file. Or I can guide you through manual setup in the n8n UI."
 

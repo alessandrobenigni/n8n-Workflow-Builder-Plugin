@@ -263,11 +263,18 @@ Build each as needed — don't pre-build tools the user hasn't asked for.
 
 ## n8n URL Configuration
 
-The default n8n URL is `http://localhost:5678`. If the user's n8n is at a different URL, ask once and remember for the session:
+Read the n8n URL from environment: `${N8N_URL}`. Default: `http://localhost:5678`.
 
+If `N8N_URL` is not set, ask once at the start of the session:
 > "What's your n8n URL? Default is http://localhost:5678"
 
-Use this URL for all webhook tool calls throughout the session.
+**Store this URL in conversation context and use it for ALL subsequent tool calls.** Never revert to localhost if the user provided a custom URL.
+
+**Pre-flight check:** Before the first tool call, verify the URL is reachable:
+```bash
+curl -s --max-time 5 "${N8N_URL}/healthz" > /dev/null 2>&1 && echo "OK" || echo "UNREACHABLE"
+```
+If unreachable: "Can't reach n8n at ${N8N_URL}. Check the URL is correct and n8n is running."
 
 ---
 
