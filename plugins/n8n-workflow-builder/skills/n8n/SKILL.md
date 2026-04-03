@@ -393,27 +393,42 @@ If project not found via search: "I couldn't find a project called '[name]'. Wou
 
 ---
 
-## Phase 6.5: CREDENTIAL SETUP GUIDE
+## Phase 6.5: CREDENTIAL SETUP
 
-After deploying but before testing or activating, check if the workflow needs credentials that the user might not have configured yet.
+After deploying but before testing, ensure all required credentials are configured. The plugin can **create API-key-based credentials automatically** if the user provides their n8n API key.
+
+### Environment configuration
+
+The plugin reads credentials from environment variables. Users should have these set in their project `.env` file:
+
+```env
+N8N_URL=http://localhost:5678
+N8N_API_KEY=your-n8n-api-key-here
+```
+
+Read the n8n URL and API key:
+```bash
+N8N_URL="${N8N_URL:-http://localhost:5678}"
+N8N_API_KEY="${N8N_API_KEY:-}"
+```
+
+If `N8N_API_KEY` is not set, ask: "To manage credentials automatically, I need your n8n API key. Go to n8n Settings > API > Create API key, then set `N8N_API_KEY` in your `.env` file. Or I can guide you through manual setup in the n8n UI."
 
 ### Step 1: Identify required credentials
 
-From the workflow code, list every `newCredential('Name')` call. These are the credentials the workflow needs. Cross-reference with the node's credential type from the local DB:
+From the workflow code, list every `newCredential('Name')` call and its credential type. Cross-reference with the local DB:
 
 ```bash
 python3 ${CLAUDE_PLUGIN_ROOT}/data/search.py --node <db_node_type>
 ```
 
-The node details show `Credentials: [type] (required=True/False)`.
+### Step 2: Check what credentials already exist
 
-### Step 2: Check if credentials exist (optional — requires n8n API key)
-
-If the user has provided an n8n API key (from Settings > API), check existing credentials:
+If `N8N_API_KEY` is available:
 
 ```bash
-curl -s "http://localhost:5678/api/v1/credentials" \
-  -H "X-N8N-API-KEY: USER_API_KEY" | python3 -c "
+curl -s "${N8N_URL}/api/v1/credentials" \
+  -H "X-N8N-API-KEY: ${N8N_API_KEY}" | python3 -c "
 import json, sys, io
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
 creds = json.load(sys.stdin).get('data', [])
@@ -422,70 +437,106 @@ for c in creds:
 "
 ```
 
-If the user hasn't provided an API key, skip this step and go directly to the setup guide.
+Compare what exists against what's needed. For each required credential:
+- **Already exists** → Note it, no action needed
+- **Missing, API-key type** → Can create automatically (Step 3a)
+- **Missing, OAuth type** → Must guide user through n8n UI (Step 3b)
 
-### Step 3: Present the credential setup guide
+### Step 3a: Create API-key credentials automatically
 
-For each credential the workflow needs, provide step-by-step instructions:
+For credentials that just need an API key (not OAuth), get the schema first:
 
-> "Your workflow needs these credentials to work:
->
-> **1. Slack** (slackOAuth2Api)
-> - Open n8n → **Credentials** (left sidebar)
-> - Click **Add Credential** → search "Slack"
-> - Choose **Slack OAuth2 API**
-> - Click **Sign in with Slack** → authorize your workspace
-> - Name it (e.g., "My Slack") → **Save**
->
-> **2. Gmail** (gmailOAuth2)
-> - Open n8n → **Credentials** → **Add Credential** → search "Gmail"
-> - Choose **Gmail OAuth2 API**
-> - You'll need a Google Cloud project with Gmail API enabled
-> - Follow the OAuth setup wizard → authorize your Gmail account → **Save**
->
-> After setting up credentials, open the workflow in n8n and assign them to each node:
-> - Click each node that shows a ⚠️ warning
-> - Select the credential you just created from the dropdown
-> - Save the workflow
->
-> Then come back here and I'll activate/test it for you."
-
-### Common credential setup guides
-
-Maintain knowledge of how to set up the most common credentials:
-
-| Service | Credential Type | Setup Complexity | Key Steps |
-|---------|----------------|-----------------|-----------|
-| **Slack** | slackOAuth2Api | Easy | Sign in with Slack button |
-| **Gmail** | gmailOAuth2 | Medium | Needs Google Cloud project + OAuth consent screen |
-| **Google Sheets** | googleSheetsOAuth2Api | Medium | Same Google Cloud project as Gmail |
-| **HubSpot** | hubspotApi | Easy | Copy API key from HubSpot settings |
-| **OpenAI** | openAiApi | Easy | Copy API key from platform.openai.com |
-| **Anthropic** | anthropicApi | Easy | Copy API key from console.anthropic.com |
-| **GitHub** | githubApi | Easy | Generate Personal Access Token |
-| **Stripe** | stripeApi | Easy | Copy API key from Stripe dashboard |
-| **HTTP Header Auth** | httpHeaderAuth | Easy | Enter header name + value |
-| **HTTP Basic Auth** | httpBasicAuth | Easy | Enter username + password |
-
-For services NOT in this list, provide generic guidance:
-> "Open n8n → Credentials → Add Credential → search for '[Service]' → follow the setup wizard. Most services need either an API key or OAuth sign-in."
-
-### Step 4: After credentials are configured
-
-When the user confirms credentials are set up:
-> "Credentials configured. Now let me assign them to the workflow and test it."
-
-If we have the n8n API key, we can verify credentials exist:
 ```bash
-curl -s "http://localhost:5678/api/v1/credentials" \
-  -H "X-N8N-API-KEY: KEY" | python3 -c "..."
+curl -s "${N8N_URL}/api/v1/credentials/schema/{credType}" \
+  -H "X-N8N-API-KEY: ${N8N_API_KEY}"
 ```
 
-Then proceed to Phase 7 (TEST).
+Then ask the user for the key and create it:
 
-### Skip credential guide when not needed
+> "Your workflow needs an **OpenAI API key**. Paste your key from [platform.openai.com/api-keys](https://platform.openai.com/api-keys):"
 
-If the workflow uses NO credentials (like our Daily Digest demo), skip this phase entirely — go straight from deploy to activation/test.
+After user provides the key:
+
+```bash
+curl -s -X POST "${N8N_URL}/api/v1/credentials" \
+  -H "X-N8N-API-KEY: ${N8N_API_KEY}" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "OpenAI",
+    "type": "openAiApi",
+    "data": { "apiKey": "USER_PROVIDED_KEY" }
+  }'
+```
+
+Confirm: "Created credential 'OpenAI' (type: openAiApi). It will be auto-assigned to the workflow."
+
+**API-key credential types (can create automatically):**
+
+| Service | Credential Type | Field | Where to Get Key |
+|---------|----------------|-------|-----------------|
+| OpenAI | openAiApi | apiKey | platform.openai.com/api-keys |
+| Anthropic | anthropicApi | apiKey | console.anthropic.com/settings/keys |
+| HubSpot | hubspotApi | apiKey | HubSpot Settings > Integrations > API key |
+| Stripe | stripeApi | apiKey | dashboard.stripe.com/apikeys |
+| SendGrid | sendGridApi | apiKey | SendGrid Settings > API Keys |
+| GitHub | githubApi | apiKey | github.com/settings/tokens |
+| HTTP Header Auth | httpHeaderAuth | name + value | User provides header name and value |
+| HTTP Basic Auth | httpBasicAuth | user + password | User provides username and password |
+
+### Step 3b: Guide OAuth credential setup in n8n UI
+
+For OAuth credentials (Slack, Gmail, Google Sheets, Microsoft, etc.) that require a browser authorization flow:
+
+> "Your workflow needs **Slack OAuth2** credentials. This requires signing in through n8n's UI:
+>
+> 1. Open n8n at ${N8N_URL}
+> 2. Go to **Credentials** (left sidebar)
+> 3. Click **Add Credential** → search **"Slack"**
+> 4. Choose **Slack OAuth2 API**
+> 5. Click **Sign in with Slack** → authorize your workspace
+> 6. Name it → **Save**
+>
+> Let me know when it's done and I'll continue."
+
+**OAuth credential types (must use n8n UI):**
+
+| Service | Credential Type | Setup Notes |
+|---------|----------------|-------------|
+| Slack | slackOAuth2Api | Sign in with Slack button |
+| Gmail | gmailOAuth2 | Needs Google Cloud project + OAuth consent screen |
+| Google Sheets | googleSheetsOAuth2Api | Same Google Cloud project as Gmail |
+| Google Drive | googleDriveOAuth2Api | Same Google Cloud project |
+| Microsoft Outlook | microsoftOutlookOAuth2Api | Azure AD app registration |
+| Microsoft Teams | microsoftTeamsOAuth2Api | Azure AD app registration |
+
+### Step 4: Verify all credentials are ready
+
+After setup, verify:
+
+```bash
+curl -s "${N8N_URL}/api/v1/credentials" \
+  -H "X-N8N-API-KEY: ${N8N_API_KEY}" | python3 -c "
+import json, sys, io
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+creds = json.load(sys.stdin).get('data', [])
+needed = ['openAiApi', 'slackOAuth2Api']  # from workflow analysis
+for ctype in needed:
+    found = [c for c in creds if c['type'] == ctype]
+    status = 'READY' if found else 'MISSING'
+    name = found[0]['name'] if found else '—'
+    print(f'  {ctype}: {status} ({name})')
+"
+```
+
+> "Credential status:
+> - OpenAI (openAiApi): **READY** (name: 'OpenAI')
+> - Slack (slackOAuth2Api): **READY** (name: 'My Slack')
+>
+> All credentials configured! Proceeding to test."
+
+### Skip when not needed
+
+If the workflow uses NO credentials (public APIs, manual triggers), skip entirely.
 
 ---
 

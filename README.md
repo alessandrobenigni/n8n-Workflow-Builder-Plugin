@@ -72,9 +72,24 @@ The plugin communicates with n8n through its built-in MCP (Model Context Protoco
 
 > **Important:** The MCP Server section only appears in n8n version 1.76+ with the MCP feature enabled. If you don't see it, update n8n or check the [n8n MCP documentation](https://docs.n8n.io/hosting/configuration/environment-variables/#mcp).
 
-### Step 3: Configure Claude Code to Connect to n8n
+### Step 3: Configure Credentials
 
-Create a `.mcp.json` file in your project directory (or `~/.claude/mcp.json` for global access):
+You need two files in your project directory:
+
+**A. `.env` file** — Stores your n8n connection details:
+
+```env
+# n8n instance URL (default: http://localhost:5678)
+N8N_URL=http://localhost:5678
+
+# n8n API Key — needed for credential management
+# Get it from: n8n Settings > API > Create API Key
+N8N_API_KEY=your-api-key-here
+```
+
+The API key enables the plugin to **create credentials automatically** (e.g., OpenAI, Anthropic, Stripe API keys) without you needing to open the n8n UI. OAuth credentials (Slack, Gmail) still require browser-based setup — the plugin will guide you step by step.
+
+**B. `.mcp.json` file** — Connects Claude Code to n8n's MCP server:
 
 ```json
 {
@@ -83,14 +98,16 @@ Create a `.mcp.json` file in your project directory (or `~/.claude/mcp.json` for
       "type": "http",
       "url": "http://localhost:5678/mcp-server/http",
       "headers": {
-        "Authorization": "Bearer YOUR_TOKEN_HERE"
+        "Authorization": "Bearer YOUR_MCP_TOKEN_HERE"
       }
     }
   }
 }
 ```
 
-Replace `YOUR_TOKEN_HERE` with the Bearer Token you copied from n8n's MCP Server settings page.
+Replace `YOUR_MCP_TOKEN_HERE` with the Bearer Token from n8n Settings > MCP Server.
+
+> **Why two credentials?** The MCP token (Bearer) gives Claude access to build and manage workflows. The API key (`X-N8N-API-KEY`) gives access to the n8n REST API for credential management, which the MCP server doesn't support. Both are from your n8n instance, but they're different tokens.
 
 **Verify the connection:** Open Claude Code and type:
 ```
@@ -603,7 +620,28 @@ python3 data/generate_tags.py
 
 ## Configuration
 
-### Environment-Specific Setup
+### .env File (Required for Credential Management)
+
+Create a `.env` file in your project root:
+
+```env
+# Required: Your n8n instance URL
+N8N_URL=http://localhost:5678
+
+# Required for credential management: n8n API key
+# Get it from: n8n Settings > API > Create API Key
+N8N_API_KEY=your-api-key-here
+```
+
+**What the API key enables:**
+- List existing credentials (check what's already configured)
+- Create API-key credentials automatically (OpenAI, Anthropic, Stripe, etc.)
+- Verify credentials exist after setup
+- The plugin asks you for the actual API keys/secrets — it just handles creating them in n8n for you
+
+**Without the API key:** The plugin still works for building/deploying/testing workflows. You'll just need to set up credentials manually through the n8n UI (the plugin guides you step by step).
+
+### .mcp.json File (Required for Workflow Management)
 
 **Local n8n (default):**
 ```json
@@ -613,7 +651,7 @@ python3 data/generate_tags.py
       "type": "http",
       "url": "http://localhost:5678/mcp-server/http",
       "headers": {
-        "Authorization": "Bearer YOUR_TOKEN"
+        "Authorization": "Bearer YOUR_MCP_TOKEN"
       }
     }
   }
@@ -628,7 +666,7 @@ python3 data/generate_tags.py
       "type": "http",
       "url": "https://YOUR_INSTANCE.app.n8n.cloud/mcp-server/http",
       "headers": {
-        "Authorization": "Bearer YOUR_TOKEN"
+        "Authorization": "Bearer YOUR_MCP_TOKEN"
       }
     }
   }

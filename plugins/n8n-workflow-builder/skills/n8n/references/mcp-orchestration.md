@@ -20,6 +20,24 @@ SEARCH UTILITY (data/search.py)   ├── get_execution (results)
 ├── Template config lookup        └── search_projects/folders
 └── Format conversion (DB→SDK)
 
+n8n REST API (requires N8N_API_KEY)
+├── GET  /api/v1/credentials              List all credentials
+├── POST /api/v1/credentials              Create a credential
+├── GET  /api/v1/credentials/schema/{type} Get required fields for a credential type
+├── DELETE /api/v1/credentials/{id}        Delete a credential
+└── Auth: X-N8N-API-KEY header (NOT the MCP Bearer token)
+├── Node operations & credentials ├── validate_workflow (code validation)
+├── Template search               ├── create_workflow_from_code (deploy)
+└── Real-world config examples    ├── update_workflow (modify)
+                                  ├── execute_workflow (test)
+SEARCH UTILITY (data/search.py)   ├── get_execution (results)
+├── Tag-based intent search       ├── publish/unpublish_workflow
+├── FTS5 text search              ├── archive_workflow
+├── Node detail lookup            ├── search_workflows
+├── Schema extraction             ├── get_workflow_details
+├── Template config lookup        └── search_projects/folders
+└── Format conversion (DB→SDK)
+
 BROKEN (do NOT use):
 ├── get_node_types — "Invalid path - path traversal detected"
 └── search_nodes — 5-result limit, fuzzy noise, high token cost
