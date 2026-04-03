@@ -30,6 +30,9 @@ Read these before every workflow build:
 - `references/mcp-orchestration.md` — **THE** source of truth for which tools to call, in what order, with what parameters. Follow it exactly.
 - `references/workflow-patterns.md` — Pattern classification (linear, branching, parallel, batch, AI agent, etc.)
 - `references/blueprint-format.md` — How to present workflow designs to users
+- `references/error-handling-patterns.md` — 5 validated error handling SDK patterns
+- `references/beginner-templates.md` — 5 starter templates for new users
+- `references/component-library.md` — Reusable saved workflow patterns
 
 ## Prerequisites Check
 
@@ -53,6 +56,16 @@ python3 ${CLAUDE_PLUGIN_ROOT}/data/search.py --stats
 ## Phase 1: UNDERSTAND
 
 Accept the user's request in any form — a single sentence, a detailed spec, or a vague idea.
+
+### Beginner detection:
+
+Check for signals that the user is new to n8n:
+- Vague requests: "I want to automate something", "what can I do with n8n"
+- Concept questions: "what is a webhook", "what is a trigger"
+- Uncertainty: "I'm not sure", "is it possible", "I'm new to this"
+- Overly broad: "automate my business", "connect everything"
+
+If 2+ signals detected, read `references/beginner-templates.md` and activate **Beginner Mode** — offer starter templates, explain concepts inline, recommend draft mode for testing.
 
 ### If no clear request:
 Ask: **"What would you like to automate? Describe what should happen — the trigger (schedule, webhook, event), the services involved, and the outcome."**
@@ -161,9 +174,37 @@ If search.py returns nothing relevant after trying the service name AND alternat
 
 ---
 
+## Phase 2.5: CHECK COMPONENTS
+
+Before designing from scratch, check if saved components match the user's needs:
+```bash
+python3 ${CLAUDE_PLUGIN_ROOT}/data/components.py --search "relevant keywords"
+```
+
+If matches found, offer to use them: "I have a saved component '[Name]' that does what you need. Want me to include it?"
+
+Read `references/component-library.md` for pre-seeded patterns available out of the box.
+
+---
+
 ## Phase 3: DESIGN
 
 Read `references/blueprint-format.md` for the presentation format.
+
+### Proactive error handling:
+
+If the workflow contains HTTP Request nodes, database writes, or external API calls, read `references/error-handling-patterns.md` and suggest adding error handling:
+
+> "This workflow calls external APIs. Want me to add error handling? Options:
+> 1. **Retry with backoff** — Auto-retry failed API calls (3 attempts)
+> 2. **Error alerts** — Send Slack/email notification on failure
+> 3. **Skip and continue** — Use fallback values if a step fails
+> 4. **Dead letter queue** — Save failed items for later reprocessing
+> 5. **No error handling** — Keep it simple"
+
+Include the chosen pattern in the blueprint.
+
+### Blueprint:
 
 Compose a workflow blueprint with:
 1. ASCII flow diagram showing topology

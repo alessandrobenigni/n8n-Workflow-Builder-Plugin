@@ -8,8 +8,8 @@
     {
       "name": "n8n-workflow-builder",
       "source": "./plugins/n8n-workflow-builder",
-      "description": "Conversational n8n workflow builder with Agent Mode. Build workflows from plain English (/n8n), use Claude as an AI agent brain with n8n tool workflows at zero LLM API cost (/n8n-agent), manage workflows (/n8n-manage), and explore 1,396 nodes (/n8n-browse). Ships with a 75MB SQLite database for instant node discovery.",
-      "version": "1.1.0",
+      "description": "The complete n8n workflow toolkit — 7 commands: build (/n8n), agent mode (/n8n-agent), test (/n8n-test), docs (/n8n-docs), audit (/n8n-audit), manage (/n8n-manage), browse (/n8n-browse). Error handling templates, beginner mode, reusable components, 1,396 nodes, 2,737 templates.",
+      "version": "1.2.0",
       "author": {
         "name": "TheSauceSuite"
       },

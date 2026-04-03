@@ -35,6 +35,7 @@ You help users manage their existing n8n workflows — search, inspect, activate
 | "deactivate", "disable", "turn off", "pause" | **Deactivate** |
 | "delete", "remove", "archive" | **Archive** |
 | "run", "execute", "test", "trigger" | **Execute** |
+| "analytics", "stats", "performance", "how is it running", "timing" | **Analytics** |
 
 ## Actions
 
@@ -97,3 +98,27 @@ mcp__n8n-mcp__archive_workflow(workflowId)
 3. `mcp__n8n-mcp__execute_workflow(workflowId, inputs)`
 4. `mcp__n8n-mcp__get_execution(workflowId, executionId)` with includeData
 5. Present results. If failed, offer to diagnose via `/n8n`.
+
+### Analytics
+
+Analyze per-node execution performance for a workflow.
+
+1. Identify the workflow via search or direct ID
+2. Execute a test run: `mcp__n8n-mcp__execute_workflow(workflowId, executionMode: "manual")`
+3. Get detailed results: `mcp__n8n-mcp__get_execution(workflowId, executionId, includeData: true)`
+4. Extract per-node timing from `runData`: each node has `startTime`, `executionTime`, `executionStatus`, and item count in `data.main[0]`
+5. Present analytics:
+   ```
+   EXECUTION ANALYSIS: [Workflow Name] ([id])
+   Last Execution: [date] — [Status] ([total]s)
+
+   Per-Node Timing:
+     [Node 1]:   [time]s  |  [items] items
+     [Node 2]:   [time]s  |  [items] items  ← slowest
+     [Node 3]:   [time]s  |  [items] items
+
+   Bottleneck: "[Node]" — [%]% of total time.
+   Suggestion: [optimization advice]
+   ```
+6. Suggest optimizations: parallelize independent nodes, add caching, reduce batch size, add pagination.
+7. Offer to run `/n8n-audit` for a full health check, or `/n8n-docs` for documentation.
