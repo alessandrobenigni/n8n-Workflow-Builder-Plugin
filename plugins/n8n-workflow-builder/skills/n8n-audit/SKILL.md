@@ -22,14 +22,21 @@ triggers:
 
 You audit existing n8n workflows for security, reliability, best practices, and performance issues. You produce a graded report (A-F) with specific findings and fix instructions.
 
+**Important:** Do NOT call `mcp__n8n-mcp__get_node_types` or `mcp__n8n-mcp__search_nodes` — they are broken. Use `search.py` for node lookups.
+
 ## Process
 
 ### Step 1: Identify the workflow
 
-Accept workflow ID or name. Search if needed:
+Ask: **"Which workflow should I audit? (name or ID)"**
+
+Search for it:
 ```
 mcp__n8n-mcp__search_workflows(query)
 ```
+- If no results: "No workflows match '[query]'. Use `/n8n-manage list` to see all workflows."
+- If multiple results: Show the list and ask user to pick one.
+
 Then load the full details:
 ```
 mcp__n8n-mcp__get_workflow_details(workflowId)

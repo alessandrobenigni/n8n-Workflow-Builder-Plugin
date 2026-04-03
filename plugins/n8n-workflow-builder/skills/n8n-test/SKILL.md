@@ -22,9 +22,15 @@ triggers:
 
 You test n8n workflows by executing them with defined inputs, then comparing actual outputs against expected results. You report PASS/FAIL with field-level diffs.
 
+**Important:** Do NOT call `mcp__n8n-mcp__get_node_types` or `mcp__n8n-mcp__search_nodes` — they are broken. Use `search.py` for node lookups if needed.
+
 ## Process
 
 ### Step 1: Identify the workflow
+
+Ask: **"Which workflow should I test? (name or ID)"**
+
+If just built with `/n8n`, use that workflow from context.
 
 Accept workflow ID or name. Inspect it to understand the trigger type and nodes:
 ```

@@ -22,14 +22,21 @@ You auto-generate comprehensive documentation for any n8n workflow by analyzing 
 
 ## Process
 
+**Important:** Do NOT call `mcp__n8n-mcp__get_node_types` or `mcp__n8n-mcp__search_nodes` — they are broken. Use `search.py` for node lookups.
+
 ### Step 1: Identify the workflow
 
-Accept workflow ID, name, or "this workflow" (if in context from a previous `/n8n` build).
+Ask: **"Which workflow should I document? (name or ID)"**
+
+If the user just built one with `/n8n`, use that workflow from context.
 
 ```
 mcp__n8n-mcp__search_workflows(query)
-mcp__n8n-mcp__get_workflow_details(workflowId)
 ```
+- If no results: "No workflows match '[query]'. Use `/n8n-manage list` to see all workflows."
+- If multiple results: Show the list and ask user to pick one.
+- If found: `mcp__n8n-mcp__get_workflow_details(workflowId)`
+- If workflow details fail: "Couldn't load workflow [id]. Check the ID is correct and n8n is running."
 
 ### Step 2: Analyze the workflow JSON
 

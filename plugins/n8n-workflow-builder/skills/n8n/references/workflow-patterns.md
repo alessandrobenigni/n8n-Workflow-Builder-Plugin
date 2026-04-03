@@ -90,6 +90,7 @@ Use this reference to map the user's natural language description to the correct
 **Pattern:** Any node with `.onError()` connecting to a handler
 **Key nodes:** `n8n-nodes-base.errorTrigger` (workflow-level), `.onError()` (node-level)
 **SDK pattern:** `node.onError(errorHandler)` with `config: { onError: 'continueErrorOutput' }`
+**Full implementation details:** See `references/error-handling-patterns.md` for 5 validated SDK patterns (retry backoff, dead letter queue, error alerts, circuit breaker, graceful degradation)
 
 ### 12. SUB-WORKFLOW / MODULAR
 **Signal words:** "reusable", "call another workflow", "sub-workflow", "modular", "shared logic"
@@ -131,6 +132,8 @@ Use this reference to map the user's natural language description to the correct
 **Pre-Wait data access:** `$("Node Before Wait").item.json.field`
 **Claude's data access:** `$json.body.fieldName`
 **Critical:** Wait node must use `httpMethod: 'POST'` and `resume: 'webhook'`. POST ensures Claude's JSON arrives in `$json.body`, not query params.
+
+**Full stateful pattern details:** See `references/stateful-patterns.md` for 7 complete patterns with SDK code examples (dedup, diff, persistence, approval, sync, audit, forms).
 
 ### 18. STATEFUL — Process Only New Items (Cross-Execution Dedup)
 **Signal words:** "only new", "skip already processed", "don't process twice", "new items only", "since last run"

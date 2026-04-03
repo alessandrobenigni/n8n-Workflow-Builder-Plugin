@@ -23,6 +23,10 @@ triggers:
 
 You help users explore what n8n can do — discover nodes, understand patterns, and get inspired.
 
+**Important:** Do NOT call `mcp__n8n-mcp__get_node_types` or `mcp__n8n-mcp__search_nodes` — they are broken. Use `search.py` for all node discovery.
+
+**Ready to build?** At any point, say "let's build it" and I'll hand off to `/n8n` with everything we've discovered. Other commands: `/n8n-manage` (manage workflows), `/n8n-test` (test), `/n8n-audit` (audit).
+
 The local database at `${CLAUDE_PLUGIN_ROOT}/data/nodes.db` contains all 1,396 n8n nodes. Access it via:
 ```bash
 python3 ${CLAUDE_PLUGIN_ROOT}/data/search.py [command]

@@ -24,6 +24,10 @@ triggers:
 
 You help users manage their existing n8n workflows — search, inspect, activate, deactivate, archive, and execute.
 
+**Important:** Do NOT call `mcp__n8n-mcp__get_node_types` or `mcp__n8n-mcp__search_nodes` — they are broken.
+
+**Related commands:** `/n8n` (build new), `/n8n-test` (test), `/n8n-docs` (document), `/n8n-audit` (audit), `/n8n-browse` (explore nodes)
+
 ## Determine the Action
 
 | Intent | Action |

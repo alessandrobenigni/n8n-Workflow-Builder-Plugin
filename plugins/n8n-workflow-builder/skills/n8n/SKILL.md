@@ -56,20 +56,75 @@ python3 ${CLAUDE_PLUGIN_ROOT}/data/search.py --stats
 
 ## Phase 1: UNDERSTAND
 
-Accept the user's request in any form — a single sentence, a detailed spec, or a vague idea.
+### Welcome (first message in session)
 
-### Beginner detection:
+If this is the user's first message to `/n8n` in this conversation, start with a brief welcome:
 
-Check for signals that the user is new to n8n:
-- Vague requests: "I want to automate something", "what can I do with n8n"
-- Concept questions: "what is a webhook", "what is a trigger"
-- Uncertainty: "I'm not sure", "is it possible", "I'm new to this"
+> "Welcome to the **n8n Workflow Builder**. I can build any n8n automation from plain English.
+>
+> **How it works:** You describe what you want → I design it → you approve → I build, validate, and deploy it to your n8n instance.
+>
+> **Choose your mode:**
+> - **Describe your workflow** — Tell me what you want to automate and I'll build it (e.g., "send a Slack message every morning at 9am")
+> - **Start with a template** — Pick from 5 ready-made starter workflows (great if you're new to n8n)
+> - **Explore first** — Not sure what's possible? Try `/n8n-browse` to discover 1,396 available nodes
+>
+> What would you like to automate?"
+
+If the user already provided a description WITH the command (e.g., `/n8n send a Slack message every morning`), skip the welcome and go directly to analysis.
+
+### Mode detection:
+
+Analyze the user's input to determine the right experience level:
+
+**Beginner signals** (2+ = activate Beginner Mode):
+- Vague: "I want to automate something", "what can I do", "help me"
+- Questions about basics: "what is a webhook", "what is a trigger", "how does n8n work"
+- Uncertainty: "I'm not sure", "is it possible", "I'm new to this", "never used n8n"
 - Overly broad: "automate my business", "connect everything"
+- Explicitly asks: "beginner mode", "start simple", "I'm a beginner"
 
-If 2+ signals detected, read `references/beginner-templates.md` and activate **Beginner Mode** — offer starter templates, explain concepts inline, recommend draft mode for testing.
+**Advanced signals** (any = stay in Advanced Mode):
+- Specific services named: "Gmail trigger to Slack with if/else branching"
+- Technical terms used correctly: "webhook", "cron", "API", "merge", "split in batches"
+- References specific patterns: "RAG pipeline", "parallel execution", "error handling"
+- Explicitly asks: "advanced mode", "skip intro", "I know n8n"
 
-### If no clear request:
-Ask: **"What would you like to automate? Describe what should happen — the trigger (schedule, webhook, event), the services involved, and the outcome."**
+### If Beginner Mode activated:
+
+Tell the user explicitly:
+
+> "**Beginner Mode** — I'll guide you step by step with simpler explanations.
+>
+> Pick a starter template, or describe what you want in plain words:
+>
+> 1. **Daily Slack Reminder** — Post a message to Slack every morning *(2 nodes, needs Slack)*
+> 2. **Form to Email** — Someone fills a form, you get an email *(2 nodes, needs Gmail)*
+> 3. **Webhook to Google Sheets** — Receive data via URL, save to a spreadsheet *(2 nodes, needs Google Sheets)*
+> 4. **RSS to Slack** — New blog post → Slack notification *(3 nodes, needs Slack)*
+> 5. **Data Fetcher** — Click a button, fetch data from any public API *(3 nodes, no credentials needed!)*
+>
+> Or just tell me what you want to do — I'll figure out the rest."
+
+If user picks a template, read `references/beginner-templates.md` for the pre-researched node inventory and skip to Phase 4 (BUILD).
+
+If user describes something custom, proceed to Phase 2 but use beginner-friendly language throughout:
+- Explain terms inline: "a **trigger** is what starts your workflow — like an alarm clock for your automation"
+- Recommend simpler patterns when possible
+- In Phase 6, recommend "Keep as draft" and walk through testing in the n8n UI
+
+To exit Beginner Mode: user says "advanced mode", "skip explanations", or "I know this already" → switch to standard behavior.
+
+### If Advanced Mode (default):
+
+Analyze the request:
+
+1. **Extract services** — Every service, API, or platform mentioned
+2. **Extract trigger** — What starts it (schedule, webhook, form, chat, app event, manual)
+3. **Extract actions** — What should happen (send, create, transform, AI process, etc.)
+4. **Extract conditions** — Any branching logic (if/else, routing, filtering)
+5. **Extract data flow** — What data moves where
+6. **Detect stateful needs** — Does the workflow need memory across executions? Look for signals: "only new", "changed since last", "don't process twice", "approve", "track", "sync", "log". If detected, read `references/stateful-patterns.md` for the right pattern.
 
 ### If request provided:
 
@@ -381,6 +436,16 @@ Conversation stays open. User can say:
 Maintain context: workflowId, last validated code, node inventory.
 
 ---
+
+## After Building: Suggest Next Steps
+
+After deployment (Phase 6) or testing (Phase 7), suggest related commands:
+
+> "Workflow deployed! Here's what you can do next:
+> - `/n8n-test` — Set up automated test cases for this workflow
+> - `/n8n-audit` — Check for security issues and best practices
+> - `/n8n-docs` — Generate documentation for your team
+> - `/n8n-manage` — List, activate, or execute your workflows"
 
 ## Style
 
