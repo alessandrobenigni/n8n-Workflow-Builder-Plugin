@@ -5,24 +5,98 @@
 <h1 align="center">n8n Workflow Builder</h1>
 
 <p align="center">
-  <strong>A Claude Code plugin that turns plain English into deployed n8n workflows.</strong><br/>
-  Describe what you want to automate. The plugin discovers nodes, designs the workflow, generates SDK code, validates, deploys, and tests — all through conversation.<br/><br/>
-  <strong>NEW: Agent Mode</strong> — Use Claude as an AI agent brain with n8n workflows as tools.<br/>
-  Zero LLM API keys. Claude IS the intelligence. n8n is the hands.
+  <strong>The most advanced n8n workflow plugin for Claude Code.</strong><br/>
+  7 commands. 1,396 nodes. 22 workflow patterns. Zero guesswork.
 </p>
 
 <p align="center">
   <a href="#quick-start">Quick Start</a> &bull;
   <a href="#commands">Commands</a> &bull;
-  <a href="#how-it-works">How It Works</a> &bull;
-  <a href="#agent-mode">Agent Mode</a> &bull;
+  <a href="#-claude-as-your-ai-brain">Agent Mode</a> &bull;
+  <a href="#-claude-in-the-middle">Middleware</a> &bull;
   <a href="#examples">Examples</a> &bull;
   <a href="#architecture">Architecture</a>
 </p>
 
 ---
 
-## What Can It Do?
+## Why This Plugin Exists
+
+Building n8n workflows manually means clicking through hundreds of nodes, guessing parameter names, and debugging connections. This plugin turns that into a conversation.
+
+**But that's just the beginning.** Here's what makes it different:
+
+### 1. Claude IS Your AI Brain — $0 LLM Cost
+
+Traditional n8n AI Agent node requires an LLM API key (OpenAI, Anthropic) and charges per token. With this plugin, **Claude does all the reasoning for free** — n8n just handles the mechanical work.
+
+```
+You: /n8n-agent research the top 5 AI startups in SF, scrape their websites,
+     find CEO emails, score by ICP fit, and draft personalized outreach emails
+
+Claude: *builds tool workflows* → *calls them* → *reads results* →
+        *scores leads* → *writes emails* → *stores everything*
+
+Total AI cost: $0.00 (Claude did all the thinking)
+```
+
+### 2. Claude-in-the-Middle — One Workflow, Claude as a Node
+
+Claude can be a **processing step inside a single n8n workflow execution**. The workflow runs, pauses at a Wait node, Claude analyzes the data and POSTs back, the workflow resumes with Claude's intelligence merged in.
+
+```
+[Trigger] → [Collect Data] → [WAIT] → [Use Claude's Analysis] → [Take Action]
+                                ↑
+                           Claude reads
+                           paused data,
+                           thinks for free,
+                           POSTs JSON back
+```
+
+One execution ID. One workflow in n8n. Claude in the middle. $0.
+
+### 3. Credentials Created From Conversation
+
+Paste your API key in the chat. The plugin creates the credential in n8n via REST API. No switching to the browser for API-key services.
+
+```
+Plugin: "Your workflow needs OpenAI. Paste your API key:"
+You:     sk-proj-abc123...
+Plugin:  "Created 'OpenAI' credential in n8n. Assigned to workflow."
+```
+
+### 4. 1,396 Nodes — Searched Instantly, Zero Tokens
+
+A 75MB local SQLite database with every n8n node, pre-tagged by intent. Say "send notification" and it instantly finds Slack, Gmail, Telegram, Discord, Teams, WhatsApp, and 40+ more. No MCP round-trips. No token cost. Instant.
+
+### 5. Enterprise Patterns Built In
+
+- **22 workflow patterns** — linear, branching, parallel, batch, AI agent, RAG, multi-trigger, error handling, sub-workflow, forms, dedup, diff, approval flows, audit trails
+- **5 error handling templates** — retry with backoff, dead letter queue, circuit breaker, alerts, graceful degradation
+- **7 stateful patterns** — cross-execution dedup, change detection, persistent state, human-in-the-loop approval, incremental sync, audit logging, multi-step forms
+- **Security audit** — 17-check graded report (A-F) for any workflow
+
+### 6. Full Lifecycle — Build, Test, Document, Audit, Manage
+
+Not just a builder. A complete toolkit:
+
+| Command | What It Does |
+|---------|-------------|
+| `/n8n` | Build any workflow from plain English |
+| `/n8n-agent` | Use Claude as AI brain with n8n tool workflows |
+| `/n8n-test` | Define test cases, run, compare expected vs actual |
+| `/n8n-docs` | Auto-generate markdown documentation |
+| `/n8n-audit` | Security + best practices audit (A-F grade) |
+| `/n8n-manage` | List, activate, execute, analyze performance |
+| `/n8n-browse` | Explore all 1,396 nodes, patterns, and templates |
+
+### 7. Beginner Friendly, Expert Capable
+
+First time? The plugin detects it, offers 5 starter templates, and explains every concept inline. Power user? Skip straight to "build a 17-node RAG pipeline with vector stores and human approval."
+
+---
+
+## See It In Action
 
 ```
 /n8n send me a Slack message every morning at 9am with the weather forecast
@@ -30,13 +104,14 @@
 
 That's it. You type what you want, and the plugin:
 
-1. Finds the right nodes (Schedule Trigger + HTTP Request + Slack)
+1. Finds the right nodes from 1,396 options (instant, local DB)
 2. Shows you a visual blueprint for approval
 3. Generates validated SDK code with exact parameter names
-4. Deploys the workflow to your n8n instance
-5. Optionally activates it and runs a test
+4. Creates any needed credentials (asks you for API keys inline)
+5. Deploys to your n8n instance
+6. Activates and tests it
 
-It works for everything from simple 2-node automations to complex 15-node RAG chatbots with vector stores, AI agents, and memory.
+Works for everything from 2-node automations to 17-node parallel scraping pipelines with error handling and human approval flows.
 
 ---
 
