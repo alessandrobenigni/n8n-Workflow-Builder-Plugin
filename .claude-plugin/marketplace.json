@@ -2,7 +2,7 @@
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "n8n-marketplace",
   "owner": {
-    "name": "TheSauceSuite"
+    "name": "alessandrobenigni"
   },
   "plugins": [
     {
@@ -11,7 +11,7 @@
       "description": "The complete n8n workflow toolkit — 7 commands: build (/n8n), agent mode (/n8n-agent), test (/n8n-test), docs (/n8n-docs), audit (/n8n-audit), manage (/n8n-manage), browse (/n8n-browse). Error handling templates, beginner mode, reusable components, 1,396 nodes, 2,737 templates.",
       "version": "1.2.0",
       "author": {
-        "name": "TheSauceSuite"
+        "name": "alessandrobenigni"
       },
       "category": "automation"
     }

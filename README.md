@@ -197,7 +197,7 @@ In Claude Code, run these two commands:
 
 ```bash
 # Step 1: Add the marketplace
-/plugin marketplace add TheSauceSuite/n8n-plugin
+/plugin marketplace add alessandrobenigni/n8n-Workflow-Builder-Plugin
 
 # Step 2: Install the plugin
 /plugin install n8n-workflow-builder@n8n-marketplace
@@ -669,7 +669,7 @@ n8n-workflow-builder/
 ### "Plugin not found" or "/n8n command not recognized"
 
 1. Verify the plugin is installed: run `/plugin` and check the "Installed" tab
-2. Try reinstalling: `/plugin marketplace add TheSauceSuite/n8n-plugin` then `/plugin install n8n-workflow-builder@n8n-marketplace`
+2. Try reinstalling: `/plugin marketplace add alessandrobenigni/n8n-Workflow-Builder-Plugin` then `/plugin install n8n-workflow-builder@n8n-marketplace`
 3. Restart Claude Code after installing
 
 ### "Validation failed" errors
@@ -854,5 +854,5 @@ MIT — see [LICENSE](LICENSE)
 <p align="center">
   Built with <a href="https://github.com/czlonkowski/n8n-mcp">n8n-mcp</a> &bull;
   Powered by <a href="https://claude.ai/claude-code">Claude Code</a> &bull;
-  Made by <a href="https://github.com/TheSauceSuite">TheSauceSuite</a>
+  Made by <a href="https://github.com/alessandrobenigni">alessandrobenigni</a>
 </p>

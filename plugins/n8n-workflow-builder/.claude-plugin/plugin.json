@@ -2,7 +2,7 @@
   "name": "n8n-workflow-builder",
   "version": "1.2.0",
   "description": "The complete n8n workflow toolkit. Build from plain English (/n8n), use Claude as AI agent brain (/n8n-agent), test workflows (/n8n-test), auto-generate docs (/n8n-docs), audit security and best practices (/n8n-audit), manage lifecycle (/n8n-manage), and explore 1,396 nodes (/n8n-browse). Ships with error handling templates, beginner mode, reusable component library, and a 75MB node database.",
-  "author": "TheSauceSuite",
+  "author": "alessandrobenigni",
   "license": "MIT",
-  "repository": "https://github.com/TheSauceSuite/n8n-plugin"
+  "repository": "https://github.com/alessandrobenigni/n8n-Workflow-Builder-Plugin"
 }
