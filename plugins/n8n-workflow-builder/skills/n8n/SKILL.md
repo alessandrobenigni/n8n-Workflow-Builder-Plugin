@@ -31,6 +31,7 @@ Read these before every workflow build:
 - `references/workflow-patterns.md` — Pattern classification (linear, branching, parallel, batch, AI agent, etc.)
 - `references/blueprint-format.md` — How to present workflow designs to users
 - `references/error-handling-patterns.md` — 5 validated error handling SDK patterns
+- `references/stateful-patterns.md` — 7 stateful patterns: dedup, diff, persistence, approval, sync, audit, forms
 - `references/beginner-templates.md` — 5 starter templates for new users
 - `references/component-library.md` — Reusable saved workflow patterns
 
@@ -77,6 +78,7 @@ Ask: **"What would you like to automate? Describe what should happen — the tri
 3. **Extract actions** — What should happen (send, create, transform, AI process, etc.)
 4. **Extract conditions** — Any branching logic (if/else, routing, filtering)
 5. **Extract data flow** — What data moves where
+6. **Detect stateful needs** — Does the workflow need memory across executions? Look for signals: "only new", "changed since last", "don't process twice", "approve", "track", "sync", "log". If detected, read `references/stateful-patterns.md` for the right pattern (dedup, diff, persistence, approval, audit, sync).
 
 ### Classify (read `references/workflow-patterns.md`):
 

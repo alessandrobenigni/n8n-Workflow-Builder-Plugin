@@ -132,6 +132,36 @@ Use this reference to map the user's natural language description to the correct
 **Claude's data access:** `$json.body.fieldName`
 **Critical:** Wait node must use `httpMethod: 'POST'` and `resume: 'webhook'`. POST ensures Claude's JSON arrives in `$json.body`, not query params.
 
+### 18. STATEFUL — Process Only New Items (Cross-Execution Dedup)
+**Signal words:** "only new", "skip already processed", "don't process twice", "new items only", "since last run"
+**Pattern:** Schedule → Fetch All → Remove Duplicates (seen in previous executions) → Process New Only
+**Key nodes:** `n8n-nodes-base.removeDuplicates` (operation: removeItemsSeenInPreviousExecutions)
+**How it works:** n8n internally remembers processed item keys across executions. No external DB needed.
+
+### 19. STATEFUL — Detect Changes (Diff Old vs New)
+**Signal words:** "what changed", "new vs old", "detect changes", "compare with previous", "sync"
+**Pattern:** Schedule → Fetch Current → [Compare Datasets ← DataTable: Previous Snapshot] → Route: new/changed/deleted
+**Key nodes:** `n8n-nodes-base.compareDatasets`, `n8n-nodes-base.dataTable`
+**Compare Datasets outputs:** Output 0 = only in input 1 (new), Output 1 = only in input 2 (deleted), Output 2 = in both but different (changed)
+
+### 20. STATEFUL — Human Approval (Wait for Decision)
+**Signal words:** "approve", "manager needs to review", "human in the loop", "wait for confirmation", "sign off"
+**Pattern:** Trigger → Process → Notify Approver → Wait for Response → Route: approved/rejected
+**Key nodes:** `n8n-nodes-base.wait` (resume: form) or Slack/Gmail/Teams `sendAndWait` operation
+**Services with sendAndWait:** Slack, Gmail, Microsoft Teams, Microsoft Outlook, Telegram, WhatsApp, Discord
+
+### 21. STATEFUL — Persistent State (DataTable as Memory)
+**Signal words:** "remember", "save for next run", "track status", "state machine", "running total", "accumulate"
+**Pattern:** Any trigger → Read State from DataTable → Process → Write Updated State to DataTable
+**Key nodes:** `n8n-nodes-base.dataTable` (upsert for state, rowExists for checking)
+**Key operations:** `upsert` (create or update), `rowExists` (2-output routing node), `rowNotExists`
+
+### 22. STATEFUL — Multi-Step Form Wizard
+**Signal words:** "multi-step form", "wizard", "multiple pages", "step by step form", "questionnaire"
+**Pattern:** Form Trigger (page 1) → Form (page 2) → Form (page 3) → Form (completion) → Process All Data
+**Key nodes:** `n8n-nodes-base.formTrigger`, `n8n-nodes-base.form` (operation: page/completion)
+**Note:** All form data from all pages is available in the final node as merged `$json`
+
 ## Complexity Classification
 
 | Criterion | Simple | Moderate | Complex |
