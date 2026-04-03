@@ -393,6 +393,102 @@ If project not found via search: "I couldn't find a project called '[name]'. Wou
 
 ---
 
+## Phase 6.5: CREDENTIAL SETUP GUIDE
+
+After deploying but before testing or activating, check if the workflow needs credentials that the user might not have configured yet.
+
+### Step 1: Identify required credentials
+
+From the workflow code, list every `newCredential('Name')` call. These are the credentials the workflow needs. Cross-reference with the node's credential type from the local DB:
+
+```bash
+python3 ${CLAUDE_PLUGIN_ROOT}/data/search.py --node <db_node_type>
+```
+
+The node details show `Credentials: [type] (required=True/False)`.
+
+### Step 2: Check if credentials exist (optional — requires n8n API key)
+
+If the user has provided an n8n API key (from Settings > API), check existing credentials:
+
+```bash
+curl -s "http://localhost:5678/api/v1/credentials" \
+  -H "X-N8N-API-KEY: USER_API_KEY" | python3 -c "
+import json, sys, io
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+creds = json.load(sys.stdin).get('data', [])
+for c in creds:
+    print(f'{c[\"type\"]} | {c[\"name\"]} | id={c[\"id\"]}')
+"
+```
+
+If the user hasn't provided an API key, skip this step and go directly to the setup guide.
+
+### Step 3: Present the credential setup guide
+
+For each credential the workflow needs, provide step-by-step instructions:
+
+> "Your workflow needs these credentials to work:
+>
+> **1. Slack** (slackOAuth2Api)
+> - Open n8n → **Credentials** (left sidebar)
+> - Click **Add Credential** → search "Slack"
+> - Choose **Slack OAuth2 API**
+> - Click **Sign in with Slack** → authorize your workspace
+> - Name it (e.g., "My Slack") → **Save**
+>
+> **2. Gmail** (gmailOAuth2)
+> - Open n8n → **Credentials** → **Add Credential** → search "Gmail"
+> - Choose **Gmail OAuth2 API**
+> - You'll need a Google Cloud project with Gmail API enabled
+> - Follow the OAuth setup wizard → authorize your Gmail account → **Save**
+>
+> After setting up credentials, open the workflow in n8n and assign them to each node:
+> - Click each node that shows a ⚠️ warning
+> - Select the credential you just created from the dropdown
+> - Save the workflow
+>
+> Then come back here and I'll activate/test it for you."
+
+### Common credential setup guides
+
+Maintain knowledge of how to set up the most common credentials:
+
+| Service | Credential Type | Setup Complexity | Key Steps |
+|---------|----------------|-----------------|-----------|
+| **Slack** | slackOAuth2Api | Easy | Sign in with Slack button |
+| **Gmail** | gmailOAuth2 | Medium | Needs Google Cloud project + OAuth consent screen |
+| **Google Sheets** | googleSheetsOAuth2Api | Medium | Same Google Cloud project as Gmail |
+| **HubSpot** | hubspotApi | Easy | Copy API key from HubSpot settings |
+| **OpenAI** | openAiApi | Easy | Copy API key from platform.openai.com |
+| **Anthropic** | anthropicApi | Easy | Copy API key from console.anthropic.com |
+| **GitHub** | githubApi | Easy | Generate Personal Access Token |
+| **Stripe** | stripeApi | Easy | Copy API key from Stripe dashboard |
+| **HTTP Header Auth** | httpHeaderAuth | Easy | Enter header name + value |
+| **HTTP Basic Auth** | httpBasicAuth | Easy | Enter username + password |
+
+For services NOT in this list, provide generic guidance:
+> "Open n8n → Credentials → Add Credential → search for '[Service]' → follow the setup wizard. Most services need either an API key or OAuth sign-in."
+
+### Step 4: After credentials are configured
+
+When the user confirms credentials are set up:
+> "Credentials configured. Now let me assign them to the workflow and test it."
+
+If we have the n8n API key, we can verify credentials exist:
+```bash
+curl -s "http://localhost:5678/api/v1/credentials" \
+  -H "X-N8N-API-KEY: KEY" | python3 -c "..."
+```
+
+Then proceed to Phase 7 (TEST).
+
+### Skip credential guide when not needed
+
+If the workflow uses NO credentials (like our Daily Digest demo), skip this phase entirely — go straight from deploy to activation/test.
+
+---
+
 ## Phase 7: TEST (optional)
 
 If user wants to test:

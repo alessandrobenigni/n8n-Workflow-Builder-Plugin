@@ -143,9 +143,12 @@ DATA FLOW:
 - All enriched leads → Slack formats and posts summary message
 
 CREDENTIALS NEEDED:
-- HubSpot: HubSpot API Key or OAuth2
-- Clearbit: API Key (via HTTP Request auth header)
-- Slack: Slack Bot Token (OAuth2)
+- HubSpot: HubSpot API Key or OAuth2 — ⚙️ Setup: n8n Credentials → Add → "HubSpot" → paste API key
+- Clearbit: API Key (via HTTP Request auth header) — ⚙️ Setup: n8n Credentials → Add → "HTTP Header Auth" → name: Authorization, value: Bearer YOUR_KEY
+- Slack: Slack Bot Token (OAuth2) — ⚙️ Setup: n8n Credentials → Add → "Slack OAuth2" → Sign in with Slack
+
+⚠️ These credentials must be configured in n8n BEFORE the workflow can run.
+   After building, I'll guide you through setting up each one.
 
 NOTES:
 - Clearbit free tier allows 50 lookups/month — consider caching
@@ -156,7 +159,8 @@ NOTES:
 
 1. **Always name nodes descriptively** — "Get New Leads" not "HTTP Request", "Enrich Lead" not "Set"
 2. **Show the data shape** at each step — users need to understand what flows between nodes
-3. **Note credential requirements** — users need to set these up in n8n before the workflow works
+3. **Note credential requirements with setup hints** — users need to know BEFORE building what they'll need to configure. Include a brief setup hint for each credential (OAuth sign-in, API key copy, etc.)
 4. **Flag potential issues** — rate limits, error cases, edge cases the user should know about
 5. **Keep diagrams simple** — for 10+ node workflows, group related nodes and show the high-level flow, with details below
 6. **Indicate expressions** — show `{{$json.field}}` syntax so users see how data connects
+7. **Warn about credential complexity** — If a credential requires OAuth setup or a cloud project (like Google APIs), flag it early so the user can prepare
