@@ -311,6 +311,28 @@ def search_nodes(query, limit=15, category=None, triggers_only=False, ai_only=Fa
             for r in cur.fetchall():
                 _add(r[0], SCORE_DOCUMENTATION, r)
 
+    # ── Strategy 8: Custom components search (same DB, separate table) ──
+    try:
+        words_or = ' OR '.join(w for w in query_words if len(w) >= 2)
+        if words_or:
+            cur.execute('''
+                SELECT c.name, c.description, c.category, c.tags, c.params, c.usage_count
+                FROM custom_components_fts f
+                JOIN custom_components c ON c.rowid = f.rowid
+                WHERE custom_components_fts MATCH ?
+                ORDER BY rank LIMIT ?
+            ''', (words_or, limit))
+            for r in cur.fetchall():
+                # Components get a special prefix so they're distinguishable
+                comp_key = f'__component__{r[0]}'
+                # Create a row-like tuple compatible with the filter/output logic
+                # (node_type, display_name, description, category, is_trigger, is_ai_tool,
+                #  is_tool_variant, is_community, is_verified, version)
+                comp_row = (comp_key, r[0], r[1], r[2], 0, 0, 0, 0, 0, f'comp:{r[5]}x')
+                _add(comp_key, SCORE_SYNONYM_HIT + 1.0, comp_row)
+    except Exception:
+        pass
+
     conn.close()
 
     # ── Apply filters ──
@@ -794,20 +816,29 @@ def main():
             print(json.dumps(out, indent=2))
         else:
             for score, node_type, row in results:
-                sdk_type = to_sdk_format(node_type)
                 name = row[1]
                 desc = (row[2] or '')[:80]
-                version = row[9] or ''
-                flags = []
-                if row[4]: flags.append('TRIGGER')
-                if row[5]: flags.append('AI')
-                if row[6]: flags.append('TOOL-VAR')
-                if row[7]: flags.append('COMMUNITY')
-                if row[8]: flags.append('VERIFIED')
-                flags_str = f' [{" ".join(flags)}]' if flags else ''
-                print(f'{sdk_type} | {name} v{version}{flags_str} (score: {score:.1f})')
-                if desc:
-                    print(f'  {desc}')
+
+                # Components have __component__ prefix
+                if node_type.startswith('__component__'):
+                    comp_name = node_type.replace('__component__', '')
+                    cat = row[3] or ''
+                    print(f'[COMPONENT] [{cat}] {comp_name} (score: {score:.1f})')
+                    if desc:
+                        print(f'  {desc}')
+                else:
+                    sdk_type = to_sdk_format(node_type)
+                    version = row[9] or ''
+                    flags = []
+                    if row[4]: flags.append('TRIGGER')
+                    if row[5]: flags.append('AI')
+                    if row[6]: flags.append('TOOL-VAR')
+                    if row[7]: flags.append('COMMUNITY')
+                    if row[8]: flags.append('VERIFIED')
+                    flags_str = f' [{" ".join(flags)}]' if flags else ''
+                    print(f'[NODE] {sdk_type} | {name} v{version}{flags_str} (score: {score:.1f})')
+                    if desc:
+                        print(f'  {desc}')
             print(f'\n{len(results)} results for "{args.query}"')
     else:
         parser.print_help()
