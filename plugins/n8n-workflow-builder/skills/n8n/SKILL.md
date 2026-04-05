@@ -45,51 +45,45 @@ Call `mcp__n8n-mcp__get_sdk_reference` with section "import".
 
 **If it works** → MCP is already configured. Skip to Step 3.
 
-**If it fails** → MCP is not configured. Enter guided setup:
+**If it fails** → MCP is not configured. Enter guided setup.
 
-> "Welcome to the **n8n Workflow Builder**! I need to connect to your n8n instance first. This takes about 60 seconds.
->
-> **Where is your n8n running?**
-> 1. **Local** — On this machine (http://localhost:5678)
-> 2. **n8n Cloud** — At *.app.n8n.cloud
-> 3. **Self-hosted** — On a custom domain/server
-> 4. **Already configured** — I have a global `~/.claude/mcp.json` already set up"
+Say: "Welcome to the **n8n Workflow Builder**! Let me connect to your n8n instance."
+
+Then ask using `AskUserQuestion`:
+- question: "Where is your n8n running?"
+- header: "n8n Setup"
+- options:
+  - label: "Local (Docker/npm)", description: "Running on this machine at localhost:5678"
+  - label: "n8n Cloud", description: "Hosted at *.app.n8n.cloud — no server management"
+  - label: "Self-hosted", description: "Custom domain like n8n.yourcompany.com"
+  - label: "Already configured", description: "I have .mcp.json set up globally — skip setup"
 
 Based on response:
 
-**If "Already configured" (option 4):** Check if `~/.claude/mcp.json` exists with an n8n-mcp entry. If yes, the MCP connection should work — retry the SDK reference call. If it still fails, the token may be expired. Ask to update it.
+**If "Already configured":** Check `~/.claude/mcp.json` exists. Retry MCP call. If fails, token may be expired — ask to update.
 
-**If Local/Cloud/Self-hosted (options 1-3):** Ask for the URL:
-
-- **Local:** Default `http://localhost:5678` — confirm or let user change the port
-- **Cloud:** Ask: "What's your n8n Cloud URL? (e.g., `https://your-name.app.n8n.cloud`)"
-- **Self-hosted:** Ask: "What's your n8n URL? (e.g., `https://n8n.yourcompany.com`)"
+**If Local/Cloud/Self-hosted:** For Local, default to `http://localhost:5678`. For Cloud/Self-hosted, ask user to type their URL.
 
 ### Step 2: Collect credentials and write config files
 
-> "Now I need two tokens from your n8n instance. Both are in n8n Settings:
->
-> **Token 1 — MCP Bearer Token** (required)
-> Go to n8n → Settings (bottom left) → **MCP Server** → Enable it → Copy the Bearer Token
->
-> Paste it here:"
+Say: "Now I need two tokens from your n8n Settings page."
 
-User pastes the MCP token.
+**Token 1 — MCP Bearer Token:**
+Say: "Go to n8n → Settings → **MCP Server** → Enable it → Copy the Bearer Token. Paste it here:"
 
-> "**Token 2 — API Key** (recommended, for automatic credential management)
-> Go to n8n → Settings → **API** → Create an API Key → Copy it
->
-> Paste it here (or type 'skip' to set up later):"
+Wait for user to paste the token.
 
-User pastes the API key (or skips).
+**Token 2 — API Key:**
+Say: "Go to n8n → Settings → **API** → Create an API Key → Copy it. Paste it here (or type 'skip'):"
 
-**Now write the configuration files:**
+Wait for user to paste or skip.
 
-Write `.mcp.json` in the project directory (or ask if they prefer global `~/.claude/mcp.json`):
-
-> "Should I save the n8n connection to:
-> 1. **This project only** (`.mcp.json` in current directory)
-> 2. **All projects** (`~/.claude/mcp.json` — global)"
+**Config file location — ask using `AskUserQuestion`:**
+- question: "Where should I save the n8n connection config?"
+- header: "Config scope"
+- options:
+  - label: "This project only", description: "Saves .mcp.json and .env in the current directory"
+  - label: "All projects (global)", description: "Saves to ~/.claude/mcp.json — available everywhere"
 
 ```bash
 # Write .mcp.json
@@ -147,20 +141,19 @@ python3 ${CLAUDE_PLUGIN_ROOT}/data/search.py --stats
 
 ### Welcome (after setup is complete)
 
-If this is the user's first workflow request in this conversation:
+If the user already provided a description WITH the command (e.g., `/n8n send a Slack message every morning`), skip the welcome and go directly to mode detection + analysis.
 
-> "Welcome to the **n8n Workflow Builder**. I can build any n8n automation from plain English.
->
-> **How it works:** You describe what you want → I design it → you approve → I build, validate, and deploy it to your n8n instance.
->
-> **Choose your mode:**
-> - **Describe your workflow** — Tell me what you want to automate and I'll build it (e.g., "send a Slack message every morning at 9am")
-> - **Start with a template** — Pick from 5 ready-made starter workflows (great if you're new to n8n)
-> - **Explore first** — Not sure what's possible? Try `/n8n-browse` to discover 1,396 available nodes
->
-> What would you like to automate?"
+If no description provided, show welcome using `AskUserQuestion`:
+- question: "Welcome to the n8n Workflow Builder! How would you like to start?"
+- header: "Get started"
+- options:
+  - label: "Describe my workflow", description: "Tell me what you want to automate in plain English — I'll build it"
+  - label: "Start with a template", description: "Pick from 5 ready-made starter workflows (great for beginners)"
+  - label: "Explore first", description: "Browse 1,396 available nodes, patterns, and templates before building"
 
-If the user already provided a description WITH the command (e.g., `/n8n send a Slack message every morning`), skip the welcome and go directly to analysis.
+If **"Describe my workflow"**: Say "What would you like to automate?" and wait for their description, then proceed to mode detection.
+If **"Start with a template"**: Activate Beginner Mode and show template selection (see below).
+If **"Explore first"**: Say "Let's explore! Use `/n8n-browse` to discover what's possible, then come back here to build." (hand off to browse skill)
 
 ### Mode detection:
 
@@ -183,17 +176,16 @@ Analyze the user's input to determine the right experience level:
 
 Tell the user explicitly:
 
-> "**Beginner Mode** — I'll guide you step by step with simpler explanations.
->
-> Pick a starter template, or describe what you want in plain words:
->
-> 1. **Daily Slack Reminder** — Post a message to Slack every morning *(2 nodes, needs Slack)*
-> 2. **Form to Email** — Someone fills a form, you get an email *(2 nodes, needs Gmail)*
-> 3. **Webhook to Google Sheets** — Receive data via URL, save to a spreadsheet *(2 nodes, needs Google Sheets)*
-> 4. **RSS to Slack** — New blog post → Slack notification *(3 nodes, needs Slack)*
-> 5. **Data Fetcher** — Click a button, fetch data from any public API *(3 nodes, no credentials needed!)*
->
-> Or just tell me what you want to do — I'll figure out the rest."
+Say: "**Beginner Mode activated** — I'll guide you step by step with simpler explanations."
+
+Then show template selection using `AskUserQuestion`:
+- question: "Pick a starter template, or describe what you want in your own words:"
+- header: "Template"
+- options:
+  - label: "Daily Slack Reminder", description: "Post a message to Slack every morning (2 nodes, needs Slack credentials)"
+  - label: "Form to Email", description: "Someone fills a form, you get an email (2 nodes, needs Gmail credentials)"
+  - label: "Webhook to Sheets", description: "Receive data via URL, save to Google Sheets (2 nodes, needs Google credentials)"
+  - label: "Data Fetcher (no credentials!)", description: "Click a button, fetch data from any public API (3 nodes, zero setup)"
 
 If user picks a template, read `references/beginner-templates.md` for the pre-researched node inventory and skip to Phase 4 (BUILD).
 
@@ -339,14 +331,16 @@ Read `references/blueprint-format.md` for the presentation format.
 
 ### Proactive error handling:
 
-If the workflow contains HTTP Request nodes, database writes, or external API calls, read `references/error-handling-patterns.md` and suggest adding error handling:
+If the workflow contains HTTP Request nodes, database writes, or external API calls, read `references/error-handling-patterns.md` and ask using `AskUserQuestion`:
 
-> "This workflow calls external APIs. Want me to add error handling? Options:
-> 1. **Retry with backoff** — Auto-retry failed API calls (3 attempts)
-> 2. **Error alerts** — Send Slack/email notification on failure
-> 3. **Skip and continue** — Use fallback values if a step fails
-> 4. **Dead letter queue** — Save failed items for later reprocessing
-> 5. **No error handling** — Keep it simple"
+- question: "This workflow calls external APIs. How should errors be handled?"
+- header: "Error handling"
+- multiSelect: false
+- options:
+  - label: "Retry with backoff", description: "Auto-retry failed API calls — 3 attempts with exponential delay"
+  - label: "Error alerts", description: "Send Slack or email notification when something fails"
+  - label: "Skip and continue", description: "Use fallback values if a step fails — workflow keeps going"
+  - label: "No error handling", description: "Keep it simple — workflow stops on any error"
 
 Include the chosen pattern in the blueprint.
 
@@ -461,20 +455,27 @@ mcp__n8n-mcp__update_workflow(workflowId, code)
 ```
 
 ### Report and offer activation:
-> "Workflow **[Name]** created (ID: [id]).
->
-> 1. **Activate it** — Start running in production
-> 2. **Keep as draft** — Test manually first
-> 3. **Test it now** — Run a test execution"
 
-If activate: `mcp__n8n-mcp__publish_workflow(workflowId)`
+Say: "Workflow **[Name]** deployed successfully (ID: [id])."
+
+Then ask using `AskUserQuestion`:
+- question: "What would you like to do with this workflow?"
+- header: "Next step"
+- options:
+  - label: "Activate it (Recommended)", description: "Start running in production — required for schedule and webhook triggers"
+  - label: "Test it first", description: "Run a manual test execution to verify it works before activating"
+  - label: "Keep as draft", description: "Save it without activating — you can activate later in n8n"
+
+If **"Activate it"**: `mcp__n8n-mcp__publish_workflow(workflowId)`. Then say "Workflow is now active and running."
+If **"Test it first"**: Proceed to Phase 7 (TEST).
+If **"Keep as draft"**: Say "Saved as draft. Activate later with `/n8n-manage activate [name]`."
 
 **Important — workflows that MUST be activated to work:**
-- **Schedule/Cron triggers** — Will NOT fire on schedule unless activated. Always recommend activation for scheduled workflows.
+- **Schedule/Cron triggers** — Will NOT fire on schedule unless activated.
 - **Webhook triggers** — Endpoint only accepts requests when active.
 - **Tool workflows** (for `/n8n-agent`) — Same as webhooks.
 
-For scheduled workflows, proactively recommend: "This workflow uses a schedule trigger. I recommend activating it now so it runs automatically. Want me to activate it?"
+For these trigger types, make "Activate it" the first option with "(Recommended)".
 
 If project not found via search: "I couldn't find a project called '[name]'. Would you like me to use the default personal project, or list available projects?"
 
