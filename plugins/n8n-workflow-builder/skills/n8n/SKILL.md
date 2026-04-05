@@ -35,30 +35,119 @@ Read these before every workflow build:
 - `references/beginner-templates.md` — 5 starter templates for new users
 - `references/component-library.md` — Reusable saved workflow patterns
 
-## Prerequisites Check
+## Phase 0: SETUP (first-time only)
 
-**1. MCP connection:** Call `mcp__n8n-mcp__get_sdk_reference` with section "import".
-- If connection refused: "n8n doesn't appear to be running. Start it with `docker start n8n` or `npx n8n start`, then check http://localhost:5678 loads."
-- If auth error (401/403): "MCP token may be expired. Go to n8n Settings → MCP Server, copy the new Bearer token, and update your `.mcp.json`."
-- If other error: "Can't reach n8n MCP server. Check your `.mcp.json` has the correct URL and token."
+Before anything else, check if the n8n connection is configured. This runs ONCE — on the user's very first `/n8n` invocation.
 
-**2. Local database:** Run:
+### Step 1: Check MCP connection
+
+Call `mcp__n8n-mcp__get_sdk_reference` with section "import".
+
+**If it works** → MCP is already configured. Skip to Step 3.
+
+**If it fails** → MCP is not configured. Enter guided setup:
+
+> "Welcome to the **n8n Workflow Builder**! I need to connect to your n8n instance first. This takes about 60 seconds.
+>
+> **Where is your n8n running?**
+> 1. **Local** — On this machine (http://localhost:5678)
+> 2. **n8n Cloud** — At *.app.n8n.cloud
+> 3. **Self-hosted** — On a custom domain/server
+> 4. **Already configured** — I have a global `~/.claude/mcp.json` already set up"
+
+Based on response:
+
+**If "Already configured" (option 4):** Check if `~/.claude/mcp.json` exists with an n8n-mcp entry. If yes, the MCP connection should work — retry the SDK reference call. If it still fails, the token may be expired. Ask to update it.
+
+**If Local/Cloud/Self-hosted (options 1-3):** Ask for the URL:
+
+- **Local:** Default `http://localhost:5678` — confirm or let user change the port
+- **Cloud:** Ask: "What's your n8n Cloud URL? (e.g., `https://your-name.app.n8n.cloud`)"
+- **Self-hosted:** Ask: "What's your n8n URL? (e.g., `https://n8n.yourcompany.com`)"
+
+### Step 2: Collect credentials and write config files
+
+> "Now I need two tokens from your n8n instance. Both are in n8n Settings:
+>
+> **Token 1 — MCP Bearer Token** (required)
+> Go to n8n → Settings (bottom left) → **MCP Server** → Enable it → Copy the Bearer Token
+>
+> Paste it here:"
+
+User pastes the MCP token.
+
+> "**Token 2 — API Key** (recommended, for automatic credential management)
+> Go to n8n → Settings → **API** → Create an API Key → Copy it
+>
+> Paste it here (or type 'skip' to set up later):"
+
+User pastes the API key (or skips).
+
+**Now write the configuration files:**
+
+Write `.mcp.json` in the project directory (or ask if they prefer global `~/.claude/mcp.json`):
+
+> "Should I save the n8n connection to:
+> 1. **This project only** (`.mcp.json` in current directory)
+> 2. **All projects** (`~/.claude/mcp.json` — global)"
+
+```bash
+# Write .mcp.json
+cat > .mcp.json << 'MCPEOF'
+{
+  "mcpServers": {
+    "n8n-mcp": {
+      "type": "http",
+      "url": "USER_N8N_URL/mcp-server/http",
+      "headers": {
+        "Authorization": "Bearer USER_MCP_TOKEN"
+      }
+    }
+  }
+}
+MCPEOF
+```
+
+Write `.env` in the project directory:
+
+```bash
+# Write .env
+cat > .env << 'ENVEOF'
+N8N_URL=USER_N8N_URL
+N8N_API_KEY=USER_API_KEY
+ENVEOF
+```
+
+### Step 3: Verify connection
+
+After writing (or if MCP was already working):
+
+Call `mcp__n8n-mcp__get_sdk_reference` with section "import" to verify.
+
+- If it works: "Connected to n8n at [URL]. Setup complete!"
+- If it fails after writing: "Connection failed. Please check:
+  - Is n8n running at [URL]?
+  - Is the MCP Server enabled in n8n Settings?
+  - Is the Bearer token correct?"
+
+### Step 4: Verify local database
+
 ```bash
 python3 ${CLAUDE_PLUGIN_ROOT}/data/search.py --stats
 ```
-- If "command not found" for python3: try `python` instead. If neither works, Python 3.8+ must be installed.
-- If nodes.db not found: the Git LFS file wasn't pulled. Run `git lfs pull` in the plugin directory.
-- If stats show 1,396 nodes, the database is ready.
+- If "command not found" for python3: try `python` instead. Python 3.8+ required.
+- If nodes.db not found: "The node database wasn't downloaded. Run `git lfs pull` in the plugin directory."
+- If stats show 1,396 nodes: database is ready.
 
-**Important:** Do NOT use `mcp__n8n-mcp__get_node_types` or `mcp__n8n-mcp__search_nodes` — they are broken on this MCP deployment. Use `search.py` for all node discovery and schema lookups.
+**Important:** Do NOT use `mcp__n8n-mcp__get_node_types` or `mcp__n8n-mcp__search_nodes` — they are broken. Use `search.py` for all node discovery and schema lookups.
 
 ---
 
 ## Phase 1: UNDERSTAND
 
-### Welcome (first message in session)
+### Welcome (after setup is complete)
 
-If this is the user's first message to `/n8n` in this conversation, start with a brief welcome:
+If this is the user's first workflow request in this conversation:
 
 > "Welcome to the **n8n Workflow Builder**. I can build any n8n automation from plain English.
 >

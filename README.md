@@ -117,100 +117,90 @@ Works for everything from 2-node automations to 17-node parallel scraping pipeli
 
 ## Quick Start
 
-### Step 1: Install and Launch n8n
+### Step 1: Have n8n Running
 
-If you don't have n8n running yet:
+You need an n8n instance — local OR cloud:
+
+<details>
+<summary><strong>Local n8n</strong> (Docker or npm)</summary>
 
 ```bash
-# Using Docker (recommended)
+# Docker (recommended)
 docker run -it --rm --name n8n -p 5678:5678 -v n8n_data:/home/node/.n8n n8nio/n8n
 
-# Or using npm
+# Or npm
 npx n8n start
 ```
+Open **http://localhost:5678** and create your account.
+</details>
 
-Open your browser to **http://localhost:5678** and complete the initial setup (create your owner account).
+<details>
+<summary><strong>n8n Cloud</strong></summary>
 
-### Step 2: Enable the MCP Server in n8n
+Sign up at [n8n.io](https://n8n.io) — your instance will be at `https://your-name.app.n8n.cloud`.
+</details>
 
-The plugin communicates with n8n through its built-in MCP (Model Context Protocol) server. You need to enable it:
+<details>
+<summary><strong>Self-hosted n8n</strong> (custom domain)</summary>
 
-1. **Open n8n** in your browser at `http://localhost:5678`
-2. Click your **avatar/initials** in the bottom-left corner
-3. Click **Settings**
-4. In the left sidebar, click **MCP Server** (under "Instance-level")
-5. Toggle **MCP Server** to **Enabled**
-6. You'll see the MCP connection details:
-   - **URL:** `http://localhost:5678/mcp-server/http`
-   - **Bearer Token:** A long JWT token (starts with `eyJ...`)
-7. **Copy the Bearer Token** — you'll need it in the next step
+Your n8n is already running at your domain (e.g., `https://n8n.yourcompany.com`).
+</details>
 
-> **Important:** The MCP Server section only appears in n8n version 1.76+ with the MCP feature enabled. If you don't see it, update n8n or check the [n8n MCP documentation](https://docs.n8n.io/hosting/configuration/environment-variables/#mcp).
+### Step 2: Enable MCP Server + Create API Key
 
-### Step 3: Configure Credentials
+In your n8n instance (local, cloud, or self-hosted):
 
-You need two files in your project directory:
+1. Click your **avatar** (bottom-left) → **Settings**
+2. **MCP Server** (left sidebar) → Toggle **Enabled** → **Copy the Bearer Token**
+3. **API** (left sidebar) → **Create API Key** → **Copy the API Key**
 
-**A. `.env` file** — Stores your n8n connection details:
+You'll paste both tokens in Step 4 — keep them handy.
 
-```env
-# n8n instance URL (default: http://localhost:5678)
-N8N_URL=http://localhost:5678
+> **Requires n8n v1.76+.** If you don't see MCP Server in Settings, update n8n.
 
-# n8n API Key — needed for credential management
-# Get it from: n8n Settings > API > Create API Key
-N8N_API_KEY=your-api-key-here
-```
+### Step 3: Install the Plugin
 
-The API key enables the plugin to **create credentials automatically** (e.g., OpenAI, Anthropic, Stripe API keys) without you needing to open the n8n UI. OAuth credentials (Slack, Gmail) still require browser-based setup — the plugin will guide you step by step.
+> **REQUIRED first:** Install [Git LFS](https://git-lfs.com/) for the 75MB node database:
+> - **Mac:** `brew install git-lfs && git lfs install`
+> - **Linux:** `apt install git-lfs && git lfs install`
+> - **Windows:** Download from [git-lfs.com](https://git-lfs.com/), then `git lfs install`
 
-**B. `.mcp.json` file** — Connects Claude Code to n8n's MCP server:
-
-```json
-{
-  "mcpServers": {
-    "n8n-mcp": {
-      "type": "http",
-      "url": "http://localhost:5678/mcp-server/http",
-      "headers": {
-        "Authorization": "Bearer YOUR_MCP_TOKEN_HERE"
-      }
-    }
-  }
-}
-```
-
-Replace `YOUR_MCP_TOKEN_HERE` with the Bearer Token from n8n Settings > MCP Server.
-
-> **Why two credentials?** The MCP token (Bearer) gives Claude access to build and manage workflows. The API key (`X-N8N-API-KEY`) gives access to the n8n REST API for credential management, which the MCP server doesn't support. Both are from your n8n instance, but they're different tokens.
-
-**Verify the connection:** Open Claude Code and type:
-```
-Can you call get_sdk_reference and confirm n8n MCP is working?
-```
-
-If Claude responds with SDK documentation, the connection is working.
-
-### Step 4: Install the Plugin
-
-In Claude Code, run these two commands:
+Then in Claude Code:
 
 ```bash
-# Step 1: Add the marketplace
 /plugin marketplace add alessandrobenigni/n8n-Workflow-Builder-Plugin
-
-# Step 2: Install the plugin
 /plugin install n8n-workflow-builder@n8n-marketplace
 ```
 
-> **REQUIRED:** [Git LFS](https://git-lfs.com/) must be installed BEFORE installing the plugin. The 75MB node database won't download without it.
-> - **Mac:** `brew install git-lfs && git lfs install`
-> - **Linux:** `apt install git-lfs && git lfs install`
-> - **Windows:** Download from [git-lfs.com](https://git-lfs.com/), then run `git lfs install`
->
-> If you already installed without Git LFS, run `git lfs pull` in the plugin directory to download the database.
+### Step 4: Run `/n8n` — Guided Setup
 
-### Step 5: Start Building
+Type `/n8n` and the plugin will guide you through connecting to your n8n instance:
+
+```
+Plugin: "Welcome! Where is your n8n running?"
+  1. Local (http://localhost:5678)
+  2. n8n Cloud (*.app.n8n.cloud)
+  3. Self-hosted (custom domain)
+  4. Already configured
+
+You:    "1" (or "2" or paste your URL)
+
+Plugin: "Paste your MCP Bearer Token (from n8n Settings → MCP Server):"
+You:    eyJhbGci...
+
+Plugin: "Paste your API Key (from n8n Settings → API):"
+You:    eyJhbGci...
+
+Plugin: *writes .mcp.json + .env automatically*
+        *verifies connection*
+        "Connected to n8n! Ready to build workflows."
+```
+
+**The plugin writes `.mcp.json` and `.env` for you.** No manual file editing needed. Works for local, cloud, and self-hosted n8n.
+
+> **Already have `.mcp.json` configured globally?** The plugin detects this and skips setup.
+
+### Step 5: Build Your First Workflow
 
 ```
 /n8n send me a Slack message every morning at 9am
