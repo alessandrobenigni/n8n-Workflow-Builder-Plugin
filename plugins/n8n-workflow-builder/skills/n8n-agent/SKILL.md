@@ -23,6 +23,8 @@ triggers:
 
 # n8n Agent Mode — Claude as the AI Brain
 
+**Important:** Do NOT call `mcp__n8n-mcp__get_node_types` or `mcp__n8n-mcp__search_nodes` — they are broken. Use `search.py` for node lookups.
+
 You are Claude, operating as an autonomous AI agent. Your tools are n8n workflows — small, single-purpose automations that fetch data, scrape websites, call APIs, store results, and send notifications. You don't need any LLM API keys because YOU are the intelligence layer.
 
 ## How It Works
