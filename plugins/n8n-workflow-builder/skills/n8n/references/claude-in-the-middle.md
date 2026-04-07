@@ -50,67 +50,61 @@ These need specialized models or infrastructure — always use the API node:
 | Web search | Needs search index | SerpAPI / Perplexity |
 | OCR text extraction | Needs OCR model | Mistral / AWS Textract |
 
-## Architecture: Batch Processing with Sub-Workflows
+## Architecture: Parallel Agent Batch Processing
 
-Claude can't process items one-at-a-time with 100 Wait/Resume cycles. Instead, use a **batch sub-workflow pattern**:
+The recommended architecture spawns a **dedicated Claude agent per batch**. Each agent gets a fresh context window, focuses only on its batch, and agents run in parallel — 4x faster with higher quality than sequential processing.
 
 ```
-MAIN WORKFLOW:
-[Trigger] → [Fetch items] → [Split into batches] → [Loop]
-                                                      ↓
-                                              [Execute Sub-workflow]
-                                              (pass batch as input)
-                                                      ↓
-                                              [Collect batch results]
-                                                      ↓
-                                              [Next batch or Done]
-                                                      ↓
-[Done] → [Merge all results] → [Store/Notify]
+┌─────────────────────────────────────────────────────────────────┐
+│  CLAUDE (main conversation — coordinator)                       │
+│                                                                 │
+│  1. Trigger main workflow → n8n splits data into N batches      │
+│  2. Each batch launches a sub-workflow that pauses at Wait      │
+│  3. Claude reads all paused executions                          │
+│  4. Spawns agents in parallel waves (4 at a time):              │
+│                                                                 │
+│     Wave 1: Agent 1 (batch 1) ─┐                               │
+│             Agent 2 (batch 2) ─┤ parallel                      │
+│             Agent 3 (batch 3) ─┤                               │
+│             Agent 4 (batch 4) ─┘                               │
+│                                                                 │
+│     Wave 2: Agent 5 (batch 5) ─┐                               │
+│             Agent 6 (batch 6) ─┤ parallel                      │
+│             Agent 7 (batch 7) ─┤                               │
+│             Agent 8 (batch 8) ─┘                               │
+│                                                                 │
+│  5. Each agent: read batch → process → POST results → done     │
+│  6. Main Claude collects all results, reports summary           │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
 
-SUB-WORKFLOW (Claude Processor):
-[Execute Workflow Trigger] → [Format batch for Claude] → [WAIT node (POST)]
-                                                              ↑
-                                                         Claude reads batch,
-                                                         processes all items,
-                                                         POSTs results back
-                                                              ↓
-[WAIT resumes] → [Parse Claude results] → [Return to main workflow]
+┌─────────────────────────────────────────────────────────────────┐
+│  n8n (mechanical layer)                                         │
+│                                                                 │
+│  MAIN WORKFLOW:                                                 │
+│  [Trigger] → [Fetch all items] → [Split into N batches]        │
+│    → [For each batch: Execute Sub-workflow] → [Collect results] │
+│                                                                 │
+│  SUB-WORKFLOW (one execution per batch, all pause at Wait):     │
+│  [Receive batch] → [Format] → [WAIT] → [Parse results] → [Return]
+│                                  ↑                              │
+│                          Agent POSTs here                       │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
-### Main workflow SDK pattern:
+### Why Parallel Agents Are Better
 
-```javascript
-const fetchItems = node({ /* fetch all data */ });
+| | Sequential (one Claude) | Parallel Agents |
+|---|---|---|
+| **Speed** | 20 batches × 30s = 10 min | 20 batches / 4 parallel = 5 waves × 30s = **2.5 min** |
+| **Quality** | Context accumulates — batch 15 has batches 1-14 in memory | Each agent has **fresh context** — no pollution |
+| **Consistency** | Reasoning may drift across batches | Every agent gets the **exact same prompt** |
+| **Failure isolation** | One bad batch stalls everything | Bad batch fails alone, others continue |
 
-const batchLoop = splitInBatches({
-  version: 3,
-  config: {
-    name: 'Process in Batches',
-    parameters: { batchSize: 25 },  // ← Set based on operation type from table above
-    position: [...]
-  }
-});
+### Sub-workflow (Claude Batch Processor)
 
-const callClaudeProcessor = node({
-  type: 'n8n-nodes-base.executeWorkflow',
-  version: 1.3,
-  config: {
-    name: 'Send Batch to Claude',
-    parameters: {
-      operation: 'call_workflow',
-      workflowId: 'CLAUDE_PROCESSOR_WORKFLOW_ID'
-    },
-    position: [...]
-  },
-  output: [{ processedItems: [...] }]
-});
-
-// Wire: trigger → fetchItems → batchLoop
-//   .onDone(mergeResults)
-//   .onEachBatch(callClaudeProcessor.to(nextBatch(batchLoop)))
-```
-
-### Sub-workflow (Claude Processor) SDK pattern:
+This workflow is deployed ONCE and called N times (once per batch). Each execution pauses independently at its Wait node.
 
 ```javascript
 const receiveBatch = trigger({
@@ -139,7 +133,7 @@ const waitForClaude = node({
   type: 'n8n-nodes-base.wait',
   version: 1.1,
   config: {
-    name: 'Wait for Claude Analysis',
+    name: 'Wait for Claude Agent',
     parameters: {
       resume: 'webhook',
       httpMethod: 'POST',
@@ -154,7 +148,7 @@ const parseResults = node({
   type: 'n8n-nodes-base.code',
   version: 2,
   config: {
-    name: 'Parse Claude Results',
+    name: 'Parse Agent Results',
     parameters: {
       mode: 'runOnceForAllItems',
       language: 'javaScript',
@@ -168,40 +162,107 @@ const parseResults = node({
 // Wire: receiveBatch → formatForClaude → waitForClaude → parseResults
 ```
 
-### How Claude Processes the Batch
+### How Claude Orchestrates Parallel Agents
 
-When the sub-workflow pauses at the Wait node, Claude:
+The main Claude conversation acts as coordinator:
 
-1. Calls `mcp__n8n-mcp__get_execution(workflowId, executionId, includeData: true)` to read the batch
-2. Sees the items array + instruction
-3. Processes ALL items in one pass (e.g., classifies all 25 leads)
-4. POSTs results back to the resume URL:
+**Step 1: Launch all batch sub-workflows**
 
+Execute the main workflow which splits data and calls the sub-workflow per batch. Each sub-workflow execution pauses at its Wait node with a unique execution ID and resume URL.
+
+**Step 2: Collect all paused execution IDs + resume URLs**
+
+Read each execution's data to get the batch contents and resume URLs.
+
+**Step 3: Spawn agents in parallel waves (max 4 per wave)**
+
+Use the Agent tool with `run_in_background: true` to launch multiple agents simultaneously:
+
+```
+Agent tool call (all 4 in ONE message):
+
+Agent 1: "Process batch 1. Read execution [id1] to get items.
+  Classify each item as high/medium/low priority with reasoning.
+  POST results to [resumeUrl1]."
+
+Agent 2: "Process batch 2. Read execution [id2] to get items.
+  Classify each item as high/medium/low priority with reasoning.
+  POST results to [resumeUrl2]."
+
+Agent 3: "Process batch 3. Read execution [id3]..."
+Agent 4: "Process batch 4. Read execution [id4]..."
+```
+
+Each agent:
+1. Calls `mcp__n8n-mcp__get_execution(workflowId, executionId, includeData: true)` — reads its batch
+2. Processes ALL items in the batch (fresh context, no pollution)
+3. POSTs results to its resume URL:
 ```bash
 curl -s -X POST "RESUME_URL" \
   -H "Content-Type: application/json" \
-  -d '{
-    "processedItems": [
-      { "id": 1, "text": "...", "classification": "high", "score": 85, "reasoning": "..." },
-      { "id": 2, "text": "...", "classification": "low", "score": 30, "reasoning": "..." },
-      ...
-    ]
-  }'
+  -d '{ "processedItems": [...] }'
 ```
+4. Reports completion back to main Claude
 
-5. Sub-workflow resumes, returns results to main workflow
-6. Main workflow moves to next batch
+**Step 4: Wait for wave to complete, launch next wave**
 
-### Claude's Processing Loop (what Claude actually does)
+When all 4 agents finish, launch the next 4. Repeat until all batches done.
+
+**Step 5: Report final results**
 
 ```
-for each batch:
-  1. get_execution → read items + instruction
-  2. Analyze all items in the batch
-  3. For each item: apply the instruction (classify/score/generate/etc.)
-  4. POST all results back to resume URL
-  5. Report progress: "Batch 3/20 complete (75 items processed)"
+Batch Processing Complete:
+- 200 items processed across 8 batches
+- 4 agents × 2 waves = 8 parallel executions
+- Total time: ~60 seconds (vs ~4 minutes sequential)
+- AI cost: $0.00
+- Accuracy: Each agent had fresh context for optimal reasoning
 ```
+
+### Agent Prompt Template
+
+Each batch agent receives this prompt:
+
+```
+You are processing batch [N] of [TOTAL] for the "[OPERATION]" task.
+
+INSTRUCTIONS:
+[The specific task instruction — e.g., "Classify each support ticket by
+priority (critical/high/medium/low) with a one-sentence reasoning."]
+
+YOUR BATCH:
+Read the data from execution [EXECUTION_ID] of workflow [WORKFLOW_ID]
+using: mcp__n8n-mcp__get_execution(workflowId, executionId, includeData: true)
+
+The batch items are in the execution data at:
+resultData.runData["Format Batch for Claude"][0].data.main[0][0].json
+
+RESUME URL:
+[RESUME_URL]
+
+OUTPUT FORMAT:
+POST a JSON body to the resume URL:
+{
+  "processedItems": [
+    { ...original item fields, "result": "your classification/score/text", "reasoning": "brief explanation" },
+    ...one entry per input item, same order
+  ]
+}
+
+Process ALL items in the batch, then POST. Do not skip any items.
+```
+
+### Configuring Parallelism
+
+| Dataset Size | Batch Size | Batches | Agents/Wave | Waves | Est. Time |
+|-------------|-----------|---------|-------------|-------|-----------|
+| 50 items | 25 | 2 | 2 | 1 | ~30s |
+| 100 items | 25 | 4 | 4 | 1 | ~30s |
+| 200 items | 25 | 8 | 4 | 2 | ~60s |
+| 500 items | 25 | 20 | 4 | 5 | ~2.5min |
+| 1000 items | 50 | 20 | 4 | 5 | ~2.5min |
+
+Max 4 agents per wave (Claude Code's practical parallel limit). Each wave takes ~30 seconds for the agents to process + POST back.
 
 ## Batch Size Selection
 
