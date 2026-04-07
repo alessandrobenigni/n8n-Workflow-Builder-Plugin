@@ -132,6 +132,14 @@ Use this reference to map the user's natural language description to the correct
 **Pre-Wait data access:** `$("Node Before Wait").item.json.field`
 **Claude's data access:** `$json.body.fieldName`
 **Critical:** Wait node must use `httpMethod: 'POST'` and `resume: 'webhook'`. POST ensures Claude's JSON arrives in `$json.body`, not query params.
+**Full implementation:** See `references/claude-in-the-middle.md` for complete batch processing architecture, operation-specific batch sizes, and sub-workflow SDK patterns.
+
+### 18a. CLAUDE-IN-THE-MIDDLE — Batch Processing
+**Signal words:** "classify these", "score all", "process each", "analyze batch", "bulk AI", "AI without API key", "free AI processing"
+**Pattern:** Main workflow splits items into batches → calls sub-workflow per batch → sub-workflow has Wait node → Claude processes batch → resumes → results collected
+**Key nodes:** `n8n-nodes-base.splitInBatches`, `n8n-nodes-base.executeWorkflow`, `n8n-nodes-base.executeWorkflowTrigger`, `n8n-nodes-base.wait`
+**Batch sizes by operation:** Classification: 50, Scoring: 25, Generation: 15, Extraction: 15, Summarization: 8, Document analysis: 3 (see `references/claude-in-the-middle.md` for full table)
+**When to use:** User has no LLM API key, or wants to avoid per-token costs, or wants Claude's reasoning quality
 
 **Full stateful pattern details:** See `references/stateful-patterns.md` for 7 complete patterns with SDK code examples (dedup, diff, persistence, approval, sync, audit, forms).
 

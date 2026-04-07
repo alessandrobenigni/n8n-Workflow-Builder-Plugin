@@ -32,6 +32,7 @@ Read these before every workflow build:
 - `references/blueprint-format.md` — How to present workflow designs to users
 - `references/error-handling-patterns.md` — 5 validated error handling SDK patterns
 - `references/stateful-patterns.md` — 7 stateful patterns: dedup, diff, persistence, approval, sync, audit, forms
+- `references/claude-in-the-middle.md` — Claude as AI processing node: batch sizes, sub-workflow pattern, operation map
 - `references/beginner-templates.md` — 5 starter templates for new users
 - `references/component-library.md` — Reusable saved workflow patterns
 
@@ -343,6 +344,27 @@ If the workflow contains HTTP Request nodes, database writes, or external API ca
   - label: "No error handling", description: "Keep it simple — workflow stops on any error"
 
 Include the chosen pattern in the blueprint.
+
+### AI engine selection (Claude-in-the-Middle):
+
+If the workflow needs ANY AI/LLM processing (classification, scoring, generation, extraction, summarization, translation, moderation, routing, personalization, enrichment, Q&A, reranking), read `references/claude-in-the-middle.md` and ask using `AskUserQuestion`:
+
+- question: "This workflow needs AI to [detected operation]. How should it be powered?"
+- header: "AI Engine"
+- options:
+  - label: "Claude-in-the-Middle (Free)", description: "$0 cost — Claude processes data in batches when you run the workflow. I'll set up the batch sub-workflow automatically."
+  - label: "LLM API (needs API key)", description: "Costs per token — runs autonomously 24/7. Needs OpenAI/Anthropic/etc. API key."
+
+**If Claude-in-the-Middle chosen:**
+- Look up the batch size for the operation type from `references/claude-in-the-middle.md`
+- Design the workflow with the batch sub-workflow pattern:
+  - Main workflow: fetch → split into batches → loop → call sub-workflow per batch → merge results
+  - Sub-workflow: receive batch → format for Claude → Wait node (POST) → parse results → return
+- Both workflows are built and deployed — the user just runs the main workflow and processes each batch when prompted
+
+**If LLM API chosen:**
+- Design with standard AI Agent / LLM Chain nodes
+- Credential setup handled in Phase 6.5
 
 ### Blueprint:
 
