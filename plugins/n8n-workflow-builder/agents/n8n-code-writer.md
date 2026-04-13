@@ -154,7 +154,91 @@ export default workflow('id', 'Name')
     .onEachBatch(processNode.to(nextBatch(sibNode))));
 ```
 
-### AI Agent
+### AI reasoning (default: Claude-in-the-Middle)
+
+**Do NOT emit `languageModel()` or `@n8n/n8n-nodes-langchain.agent` nodes
+for reasoning tasks unless the blueprint explicitly says the user wants
+an external LLM API.** The default pattern for classification, scoring,
+generation, extraction, analysis, routing, etc. is an inline Wait node
+handled by the CITM runtime daemon:
+
+```javascript
+// Load task instructions from a markdown file
+const readInstructions = node({
+  type: 'n8n-nodes-base.readWriteFile', version: 1.1,
+  config: {
+    name: 'Read Classify Instructions',
+    parameters: { operation: 'read', fileSelector: '/path/to/classify.md', options: {} },
+    position: [540, 300],
+  },
+  output: [{}],
+});
+const extractInstructions = node({
+  type: 'n8n-nodes-base.extractFromFile', version: 1.1,
+  config: { name: 'Extract Instructions', parameters: { operation: 'text', binaryPropertyName: 'data', destinationKey: 'content', options: {} }, position: [740, 300] },
+  output: [{ content: '...' }],
+});
+
+// Build the payload — MUST contain a field whose key ends in `_instructions`
+const buildPayload = node({
+  type: 'n8n-nodes-base.code', version: 2,
+  config: {
+    name: 'Build Classify Payload',
+    parameters: {
+      mode: 'runOnceForAllItems',
+      language: 'javaScript',
+      jsCode: `const items = $('Fetch Data').all().map(i => i.json);
+const instructions = $('Extract Instructions').first().json.content;
+return [{ json: { items, classify_instructions: instructions } }];`,
+    },
+    position: [940, 300],
+  },
+  output: [{ items: [], classify_instructions: '' }],
+});
+
+// Wait node — the CITM runtime picks it up and spawns a fresh claude
+const waitForClaude = node({
+  type: 'n8n-nodes-base.wait', version: 1.1,
+  config: {
+    name: 'Wait for Claude Classify',
+    parameters: { resume: 'webhook', httpMethod: 'POST', incomingAuthentication: 'none' },
+    position: [1140, 300],
+  },
+  output: [{ body: { results: [] } }],
+});
+
+// Parse the JSON that Claude POSTed
+const parseResult = node({
+  type: 'n8n-nodes-base.code', version: 2,
+  config: {
+    name: 'Parse Classify Result',
+    parameters: {
+      mode: 'runOnceForAllItems',
+      language: 'javaScript',
+      jsCode: `const body = ($input.first().json.body) || $input.first().json;
+if (body.error) throw new Error(body.error);
+return (body.results || []).map(r => ({ json: r }));`,
+    },
+    position: [1340, 300],
+  },
+  output: [{ /* per-item result */ }],
+});
+```
+
+Wire them as `readInstructions → extractInstructions → buildPayload → waitForClaude → parseResult`.
+
+The runtime at `plugins/n8n-workflow-builder/runtime/citm_watcher.py`
+detects the paused Wait node, reads the upstream payload, spawns a
+fresh `claude -p` subprocess with zero context, Claude reads the
+`classify_instructions` field and produces JSON, curls it to the
+signed resume URL, workflow resumes. $0 cost. No API key.
+
+### AI Agent with external LLM (ONLY when explicitly requested)
+
+Only emit this pattern if the blueprint says the user explicitly
+requested an external model (OpenAI, Anthropic, Gemini, etc.), or the
+workflow is a real-time chatbot needing sub-second streaming latency:
+
 ```javascript
 const llm = languageModel({ type: '@n8n/n8n-nodes-langchain.lmChatOpenAi', version: 1.3, config: { name: 'OpenAI', parameters: {}, credentials: { openAiApi: newCredential('OpenAI') }, position: [...] } });
 const mem = memory({ type: '@n8n/n8n-nodes-langchain.memoryBufferWindow', version: 1.3, config: { name: 'Memory', parameters: {}, position: [...] } });

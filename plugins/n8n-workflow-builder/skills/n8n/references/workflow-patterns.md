@@ -58,19 +58,20 @@ Use this reference to map the user's natural language description to the correct
 **Key nodes:** `n8n-nodes-base.splitInBatches`
 **SDK pattern:** `.to(sib.onDone(finalizeNode).onEachBatch(processNode.to(nextBatch(sib))))`
 
-### 7. AI AGENT
-**Signal words:** "AI agent", "assistant", "intelligent", "can use tools", "decide what to do", "autonomous", "plan and execute"
+### 7. AI AGENT (only when user explicitly asks for an external LLM)
+**Signal words:** "AI agent with my OpenAI key", "use GPT-4o", "use Claude API", "use Gemini", "autonomous agent with tools", "external LLM"
 **Pattern:** Trigger → AI Agent (with LLM model + tools + optional memory)
 **Key nodes:** `@n8n/n8n-nodes-langchain.agent`, LLM models, tool nodes
 **SDK pattern:** Uses `languageModel()`, `tool()`, `memory()` as subnodes in agent config
 **Important:** Every agent in a conversational workflow MUST have a memory subnode. Use `fromAi()` for AI-controlled tool parameters.
+**DO NOT propose this pattern by default.** Use CITM (pattern 17/18a) for ALL reasoning tasks unless the user explicitly asks for an external LLM API. Real-time sub-second chat is the one legitimate use case — everything else belongs in CITM.
 
-### 8. CHATBOT / CONVERSATIONAL
+### 8. CHATBOT / CONVERSATIONAL (real-time chat only)
 **Signal words:** "chat", "conversation", "talk to", "ask questions", "chatbot", "webchat", "messaging"
 **Pattern:** Chat Trigger → AI Agent (with memory) → Response
 **Key nodes:** `@n8n/n8n-nodes-langchain.chatTrigger`, `@n8n/n8n-nodes-langchain.agent`, `@n8n/n8n-nodes-langchain.memoryBufferWindow`
 **SDK pattern:** Chat trigger with `loadPreviousSession` + agent with memory subnode
-**Important:** When loadPreviousSession is "memory", the Agent MUST also have its own memory subnode
+**Important:** When loadPreviousSession is "memory", the Agent MUST also have its own memory subnode. This is the one pattern where an external LLM API is justified by default — chat UX requires sub-second streaming that the CITM daemon's 15s poll can't match.
 
 ### 9. RAG (Retrieval Augmented Generation)
 **Signal words:** "knowledge base", "answer from documents", "search documents", "RAG", "vector store", "embeddings", "ingest documents"
@@ -134,12 +135,14 @@ Use this reference to map the user's natural language description to the correct
 **Critical:** Wait node must use `httpMethod: 'POST'` and `resume: 'webhook'`. POST ensures Claude's JSON arrives in `$json.body`, not query params.
 **Full implementation:** See `references/claude-in-the-middle.md` for complete batch processing architecture, operation-specific batch sizes, and sub-workflow SDK patterns.
 
-### 18a. CLAUDE-IN-THE-MIDDLE — Batch Processing
-**Signal words:** "classify these", "score all", "process each", "analyze batch", "bulk AI", "AI without API key", "free AI processing"
-**Pattern:** Main workflow splits items into batches → calls sub-workflow per batch → sub-workflow has Wait node → Claude processes batch → resumes → results collected
-**Key nodes:** `n8n-nodes-base.splitInBatches`, `n8n-nodes-base.executeWorkflow`, `n8n-nodes-base.executeWorkflowTrigger`, `n8n-nodes-base.wait`
-**Batch sizes by operation:** Classification: 50, Scoring: 25, Generation: 15, Extraction: 15, Summarization: 8, Document analysis: 3 (see `references/claude-in-the-middle.md` for full table)
-**When to use:** User has no LLM API key, or wants to avoid per-token costs, or wants Claude's reasoning quality
+### 18a. CLAUDE-IN-THE-MIDDLE — DEFAULT for every AI reasoning task
+**Signal words:** "classify", "score", "generate", "analyze", "extract", "summarize", "translate", "moderate", "route", "personalize", "enrich", "decide", "rank" — basically any text-in/text-out reasoning operation
+**Pattern:** Inline Wait node in the main workflow. Build Payload Code node outputs a field ending in `_instructions`, Wait node pauses, CITM runtime daemon spawns a fresh `claude` subprocess that reads the payload, follows the instructions, and POSTs the JSON result back to the signed resume URL. Next node parses.
+**Key nodes:** `n8n-nodes-base.wait` (resume: webhook, POST), `n8n-nodes-base.code` (build payload + parse result)
+**Runtime required:** `plugins/n8n-workflow-builder/runtime/install.py` — cross-platform background daemon that detects every paused Wait node across all workflows and spawns Claudes in parallel up to `max_concurrent_claudes`.
+**Convention:** Upstream node output must contain a field whose key ends in `_instructions` (e.g. `classify_instructions`, `judge_instructions`). The runtime reads that field as Claude's task brief.
+**When to use:** Default for EVERY reasoning task. Do NOT propose LLM API nodes unless the user explicitly asks for a specific external model or needs sub-second latency / image / audio / embedding capabilities.
+**High-volume variant:** For 200+ items, split into batches via Execute Workflow sub-workflow. Each sub-execution pauses at its Wait node and is resolved in parallel by the runtime. See `references/claude-in-the-middle.md`.
 
 **Full stateful pattern details:** See `references/stateful-patterns.md` for 7 complete patterns with SDK code examples (dedup, diff, persistence, approval, sync, audit, forms).
 

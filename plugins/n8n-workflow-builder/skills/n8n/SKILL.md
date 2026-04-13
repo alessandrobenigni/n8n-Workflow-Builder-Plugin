@@ -345,26 +345,48 @@ If the workflow contains HTTP Request nodes, database writes, or external API ca
 
 Include the chosen pattern in the blueprint.
 
-### AI engine selection (Claude-in-the-Middle):
+### AI engine (default: Claude-in-the-Middle):
 
-If the workflow needs ANY AI/LLM processing (classification, scoring, generation, extraction, summarization, translation, moderation, routing, personalization, enrichment, Q&A, reranking), read `references/claude-in-the-middle.md` and ask using `AskUserQuestion`:
+If the workflow needs ANY AI/LLM processing (classification, scoring, generation, extraction, summarization, translation, moderation, routing, personalization, enrichment, Q&A, reranking, analysis, decision-making), **default silently to Claude-in-the-Middle**. Do NOT ask the user which AI engine to use. Do NOT mention OpenAI/Anthropic/Gemini/etc. API keys unless the user explicitly requests an API-based solution.
 
-- question: "This workflow needs AI to [detected operation]. How should it be powered?"
-- header: "AI Engine"
-- options:
-  - label: "Claude-in-the-Middle (Free)", description: "$0 cost — Claude processes data in batches when you run the workflow. I'll set up the batch sub-workflow automatically."
-  - label: "LLM API (needs API key)", description: "Costs per token — runs autonomously 24/7. Needs OpenAI/Anthropic/etc. API key."
+Read `references/claude-in-the-middle.md` for the full architecture and the workflow design convention (Wait node + `<field>_instructions` upstream output).
 
-**If Claude-in-the-Middle chosen:**
-- Look up the batch size for the operation type from `references/claude-in-the-middle.md`
-- Design the workflow with the batch sub-workflow pattern:
-  - Main workflow: fetch → split into batches → loop → call sub-workflow per batch → merge results
-  - Sub-workflow: receive batch → format for Claude → Wait node (POST) → parse results → return
-- Both workflows are built and deployed — the user just runs the main workflow and processes each batch when prompted
+**Default flow:**
 
-**If LLM API chosen:**
-- Design with standard AI Agent / LLM Chain nodes
-- Credential setup handled in Phase 6.5
+1. Design the workflow with inline Wait nodes for each AI step — no sub-workflow split for normal-sized datasets (< 200 items)
+2. Each Wait node is preceded by a "Build Payload" Code node whose output contains a field ending in `_instructions` (e.g. `classify_instructions`, `extract_instructions`, `judge_instructions`) — that field holds the task brief and output JSON schema
+3. The payload also contains the data the task operates on
+4. The CITM runtime daemon picks up every paused Wait node and spawns a fresh `claude` subprocess per handoff, in parallel up to `max_concurrent_claudes`
+5. Mention in the blueprint: "AI step: [operation]. Powered by Claude-in-the-Middle — handled automatically by the CITM runtime, $0 cost, no API key needed."
+
+**Check the runtime is installed before building (once per conversation):**
+
+```bash
+python3 plugins/n8n-workflow-builder/runtime/citm_watcher.py --status
+```
+
+If not running, prompt:
+
+> "Your workflow will use Claude-in-the-Middle for the AI steps. The CITM runtime daemon isn't running yet. Want me to install it? Takes 30 seconds: `python3 plugins/n8n-workflow-builder/runtime/install.py`. After that, every Wait node in any workflow is handled automatically."
+
+If the user declines, build the workflow anyway — paused executions will be picked up once the daemon is eventually started.
+
+**High-volume variant (200+ items only):**
+
+For datasets that exceed Claude's practical per-call context (~200K tokens), split into batches with an Execute Workflow sub-workflow pattern. See `references/claude-in-the-middle.md` for recommended batch sizes and the sub-workflow template. Each sub-execution pauses at its own Wait node and is resolved independently by the runtime.
+
+**API-based LLM nodes (only when the user explicitly asks):**
+
+Only design with `@n8n/n8n-nodes-langchain.*` AI Agent / LLM Chain nodes if the user explicitly requests one of:
+
+- A specific model: "I want to use GPT-4o", "use Claude via API", "use Gemini Pro"
+- Real-time chat with <1 second latency
+- Image/audio/video generation (image diffusion, TTS, Whisper, Sora, Veo)
+- Embeddings generation for vector stores
+- OCR / document extraction requiring specialized APIs
+- User provides their own API key and asks to use it
+
+In those cases, credential setup is handled in Phase 6.5. For every other reasoning task, stick with CITM.
 
 ### Blueprint:
 
@@ -569,9 +591,9 @@ curl -s "${N8N_URL}/api/v1/credentials/schema/{credType}" \
   -H "X-N8N-API-KEY: ${N8N_API_KEY}"
 ```
 
-Then ask the user for the key and create it:
+Then ask the user for the key and create it. Example (HubSpot):
 
-> "Your workflow needs an **OpenAI API key**. Paste your key from [platform.openai.com/api-keys](https://platform.openai.com/api-keys):"
+> "Your workflow needs a **HubSpot API key**. Paste your key from HubSpot Settings → Integrations → API key:"
 
 After user provides the key:
 
@@ -580,26 +602,35 @@ curl -s -X POST "${N8N_URL}/api/v1/credentials" \
   -H "X-N8N-API-KEY: ${N8N_API_KEY}" \
   -H "Content-Type: application/json" \
   -d '{
-    "name": "OpenAI",
-    "type": "openAiApi",
+    "name": "HubSpot",
+    "type": "hubspotApi",
     "data": { "apiKey": "USER_PROVIDED_KEY" }
   }'
 ```
 
-Confirm: "Created credential 'OpenAI' (type: openAiApi). It will be auto-assigned to the workflow."
+Confirm: "Created credential 'HubSpot' (type: hubspotApi). It will be auto-assigned to the workflow."
 
-**API-key credential types (can create automatically):**
+**API-key credential types (can create automatically) — service APIs:**
 
 | Service | Credential Type | Field | Where to Get Key |
 |---------|----------------|-------|-----------------|
-| OpenAI | openAiApi | apiKey | platform.openai.com/api-keys |
-| Anthropic | anthropicApi | apiKey | console.anthropic.com/settings/keys |
 | HubSpot | hubspotApi | apiKey | HubSpot Settings > Integrations > API key |
 | Stripe | stripeApi | apiKey | dashboard.stripe.com/apikeys |
 | SendGrid | sendGridApi | apiKey | SendGrid Settings > API Keys |
 | GitHub | githubApi | apiKey | github.com/settings/tokens |
 | HTTP Header Auth | httpHeaderAuth | name + value | User provides header name and value |
 | HTTP Basic Auth | httpBasicAuth | user + password | User provides username and password |
+
+**LLM API credentials — ONLY when the user explicitly asked for an external model:**
+
+Do NOT propose these by default. CITM (see `references/claude-in-the-middle.md`) is the default for every reasoning task. Only create these if the user explicitly said "use GPT-4o", "use Claude via the Anthropic API", "use Gemini", provided their own key, or the workflow is a real-time sub-second chatbot.
+
+| Service | Credential Type | Field | Where to Get Key |
+|---------|----------------|-------|-----------------|
+| OpenAI | openAiApi | apiKey | platform.openai.com/api-keys |
+| Anthropic | anthropicApi | apiKey | console.anthropic.com/settings/keys |
+| Google Gemini | googlePalmApi | apiKey | ai.google.dev |
+| Mistral | mistralApi | apiKey | console.mistral.ai |
 
 ### Step 3b: Guide OAuth credential setup in n8n UI
 
@@ -637,7 +668,7 @@ curl -s "${N8N_URL}/api/v1/credentials" \
 import json, sys, io
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
 creds = json.load(sys.stdin).get('data', [])
-needed = ['openAiApi', 'slackOAuth2Api']  # from workflow analysis
+needed = ['hubspotApi', 'slackOAuth2Api']  # from workflow analysis
 for ctype in needed:
     found = [c for c in creds if c['type'] == ctype]
     status = 'READY' if found else 'MISSING'
@@ -647,10 +678,12 @@ for ctype in needed:
 ```
 
 > "Credential status:
-> - OpenAI (openAiApi): **READY** (name: 'OpenAI')
+> - HubSpot (hubspotApi): **READY** (name: 'HubSpot')
 > - Slack (slackOAuth2Api): **READY** (name: 'My Slack')
 >
 > All credentials configured! Proceeding to test."
+
+**Note on AI credentials:** A typical workflow needs NO LLM API credentials. Reasoning steps go through Claude-in-the-Middle (see `references/claude-in-the-middle.md`), which requires no credentials at all — the CITM runtime daemon spawns fresh `claude` subprocesses that use your existing Claude Code authentication. Only check for `openAiApi` / `anthropicApi` / etc. if the blueprint explicitly includes an AI Agent or LLM Chain node that the user asked for.
 
 ### Skip when not needed
 

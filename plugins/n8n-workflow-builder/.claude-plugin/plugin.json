@@ -1,5 +1,5 @@
 {
   "name": "n8n-workflow-builder",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "description": "The complete n8n workflow toolkit. 7 commands, 5 agents, 1,396 nodes. Build workflows from plain English. Automated Claude-in-the-Middle runtime: background daemon spawns fresh claude subprocesses for every Wait node, fully hands-off, with parallel dispatch and singleton lock. Layered prompts loader for project + plugin library. Interactive UI with AskUserQuestion. Guided setup writes .mcp.json and .env automatically. Credential management via REST API. Testing, docs, audit, components, stateful patterns."
 }
