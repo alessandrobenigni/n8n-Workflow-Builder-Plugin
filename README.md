@@ -544,6 +544,56 @@ The most architecturally clean integration: Claude is a processing node **inside
 - **Claude POSTs JSON** to the resume URL — workflow resumes with Claude's output in `$json.body.*`
 - **$0 AI cost** — Claude does all reasoning, n8n handles collection and action
 
+### Fully Automated Claude-in-the-Middle (CITM runtime)
+
+The plugin ships a **background daemon** that automates CITM end-to-end.
+Install it once with `python3 runtime/install.py` and it registers as a
+user service (Task Scheduler on Windows, launchd on macOS, systemd on
+Linux). From that moment on:
+
+1. Click **Execute** on any n8n workflow with a Wait node
+2. The daemon detects the paused execution within ~15 seconds
+3. It extracts the upstream payload to a file
+4. Spawns a **fresh `claude -p`** subprocess with empty context
+5. Claude reads the instructions embedded in the payload, produces the
+   JSON output, and POSTs it back to the signed resume URL via curl
+6. The workflow resumes. Repeat for every Wait node in the chain.
+
+Key properties:
+
+- **Stateless.** Each handoff spawns a new Claude subprocess with zero
+  prior context. Your main Claude Code session is never touched.
+- **Parallel.** Multiple paused Wait nodes are processed concurrently up
+  to `max_concurrent_claudes` (default 4). Runs fanned-out branches,
+  parallel workflows, and ad-hoc tests all in parallel.
+- **Generic.** No hardcoded workflow IDs. Any workflow that places an
+  `<anything>_instructions` field in the Wait node's upstream output is
+  picked up automatically.
+- **Singleton-safe.** PID-file lock with cross-platform liveness checks
+  prevents duplicate daemons from spawning duplicate Claudes.
+- **Zero token cost.** Fresh Claude subprocesses use your existing
+  Claude Code subscription — no Anthropic API key, no per-token billing.
+
+Install:
+
+```bash
+python3 plugins/n8n-workflow-builder/runtime/install.py
+```
+
+Operate:
+
+```bash
+# status and health
+python3 plugins/n8n-workflow-builder/runtime/citm_watcher.py --status
+python3 plugins/n8n-workflow-builder/runtime/citm_watcher.py --health
+
+# tail logs
+tail -f ~/.claude/n8n-citm/logs/watcher.log
+```
+
+Full architecture, workflow-design convention, and troubleshooting guide:
+[plugins/n8n-workflow-builder/runtime/README.md](plugins/n8n-workflow-builder/runtime/README.md)
+
 ---
 
 ## Tag-Based Node Discovery
